@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, getTables } from '@/lib/mockDb';
+import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, getTables, Role } from '@/lib/mockDb';
 import { Edit, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,11 +118,16 @@ const Prompts = () => {
     return true;
   });
   
+  // Helper function to determine if user can create/edit prompts
+  const canManagePrompts = (role?: Role): boolean => {
+    return role === 'super-admin' || role === 'table-admin';
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Prompts</h1>
-        {user && (user.role === 'super-admin' || user.role === 'table-admin') && (
+        {user && canManagePrompts(user.role) && (
           <Dialog open={showAddPrompt} onOpenChange={setShowAddPrompt}>
             <DialogTrigger asChild>
               <Button>
@@ -161,7 +166,9 @@ const Prompts = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Tables</SelectItem>
-                      {(user && user.role === 'super-admin' ? tables : tables.filter(t => t.id === user?.tableNumber))
+                      {(user && user.role === 'super-admin' 
+                        ? tables 
+                        : tables.filter(t => t.id === user?.tableNumber))
                         .map((table) => (
                           <SelectItem key={table.id} value={table.id.toString()}>
                             Table {table.id}
