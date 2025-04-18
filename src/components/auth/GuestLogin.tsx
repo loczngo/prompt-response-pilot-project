@@ -19,7 +19,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { login } = useAuth();
+  const { loginGuest } = useAuth();
   const { toast } = useToast();
 
   // Load active tables when component mounts and periodically refresh
@@ -111,14 +111,8 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
       
-      // Use the login method with role: 'guest'
-      await login({
-        firstName,
-        lastName,
-        role: 'guest',
-        tableNumber: parseInt(tableNumber),
-        seatCode
-      });
+      // Use the loginGuest method
+      await loginGuest(firstName, parseInt(tableNumber), seatCode);
       
       toast({
         title: "Login Successful",
