@@ -122,7 +122,7 @@ const Prompts = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Prompts</h1>
-        {(user?.role === 'super-admin' || user?.role === 'table-admin') && (
+        {user && (user.role === 'super-admin' || user.role === 'table-admin') && (
           <Dialog open={showAddPrompt} onOpenChange={setShowAddPrompt}>
             <DialogTrigger asChild>
               <Button>
@@ -161,7 +161,7 @@ const Prompts = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Tables</SelectItem>
-                      {(user?.role === 'super-admin' ? tables : tables.filter(t => t.id === user?.tableNumber))
+                      {(user && user.role === 'super-admin' ? tables : tables.filter(t => t.id === user?.tableNumber))
                         .map((table) => (
                           <SelectItem key={table.id} value={table.id.toString()}>
                             Table {table.id}
