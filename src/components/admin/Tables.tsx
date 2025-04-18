@@ -46,10 +46,12 @@ const Tables = () => {
   const [tableMessage, setTableMessage] = useState('');
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showPlayerDealerDialog, setShowPlayerDealerDialog] = useState(false);
-  
+  const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
+  const [newTableSeats, setNewTableSeats] = useState<number>(6);
+
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  
+
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -65,21 +67,21 @@ const Tables = () => {
       </div>
     );
   }
-  
+
   useEffect(() => {
     if (currentUser?.role === 'table-admin' && currentUser?.tableNumber) {
       setTableNumber(currentUser.tableNumber.toString());
       handleTableSelect();
     }
   }, [currentUser]);
-  
+
   const refreshTables = () => {
     setTables(getTables());
     if (selectedTable) {
       setSelectedTable(getTable(selectedTable.id));
     }
   };
-  
+
   const handleTableSelect = () => {
     if (!tableNumber) {
       setSelectedTable(null);
@@ -101,7 +103,7 @@ const Tables = () => {
       }
     }
   };
-  
+
   const handleSeatStatusToggle = (seatCode: string) => {
     if (!selectedTable) return;
     
@@ -118,7 +120,7 @@ const Tables = () => {
       description: `Seat ${seatCode} is now ${newStatus}.`,
     });
   };
-  
+
   const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
     
@@ -132,7 +134,7 @@ const Tables = () => {
       description: `"${prompt?.text}" has been sent to Table ${selectedTable.id}.`,
     });
   };
-  
+
   const handleSendMessage = () => {
     if (!selectedTable || !tableMessage) return;
     
@@ -144,7 +146,7 @@ const Tables = () => {
     setTableMessage('');
     setShowMessageDialog(false);
   };
-  
+
   const handleExportData = () => {
     if (!selectedTable) return;
     
@@ -153,7 +155,7 @@ const Tables = () => {
       description: `Table ${selectedTable.id} data has been exported.`,
     });
   };
-  
+
   const handlePrintReport = () => {
     if (!selectedTable) return;
     
@@ -162,13 +164,13 @@ const Tables = () => {
       description: `Table ${selectedTable.id} report has been sent to printer.`,
     });
   };
-  
+
   const initiatePlayerDealerQuery = () => {
     if (!selectedTable) return;
     
     setShowPlayerDealerDialog(true);
   };
-  
+
   const handlePlayerDealerQuery = (seatCode: string) => {
     if (!selectedTable) return;
     
@@ -233,7 +235,7 @@ const Tables = () => {
       description: `Seat ${seatCode} has been prompted to be the Player-Dealer.`,
     });
   };
-  
+
   const deletePlayerResponse = (responseId: string) => {
     if (window.confirm('Are you sure you want to delete this response?')) {
       deleteResponse(responseId);
@@ -244,7 +246,7 @@ const Tables = () => {
       refreshTables();
     }
   };
-  
+
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM d, yyyy h:mm a');
@@ -252,7 +254,7 @@ const Tables = () => {
       return 'Invalid date';
     }
   };
-  
+
   const getUserForSeat = (tableId: number, seatCode: string): User | undefined => {
     const table = getTable(tableId);
     if (!table) return undefined;
@@ -262,28 +264,59 @@ const Tables = () => {
     
     return getUsers().find(u => u.id === seat.userId);
   };
-  
+
   const activePrompts = getPrompts().filter(p => 
     p.status === 'active' && 
     (p.targetTable === null || (selectedTable && p.targetTable === selectedTable.id))
   );
-  
+
   const tableResponses = selectedTable 
     ? getResponses()
         .filter(r => r.tableNumber === selectedTable.id)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     : [];
-  
+
+  const handleCreateTable = () => {
+    const tables = getTables();
+    const newTableId = Math.max(...tables.map(t => t.id), 0) + 1;
+    
+    const newTable: Table = {
+      id: newTableId,
+      status: 'active',
+      seats: Array.from({ length: newTableSeats }, (_, i) => ({
+        code: String.fromCharCode(65 + i), // A, B, C, etc.
+        status: 'active',
+        isDealer: false
+      }))
+    };
+
+    localStorage.setItem('prs_tables', JSON.stringify([...tables, newTable]));
+    refreshTables();
+    setShowCreateTableDialog(false);
+    
+    toast({
+      title: "Table Created",
+      description: `Table ${newTableId} has been created with ${newTableSeats} seats.`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Tables</h1>
-        <Button onClick={refreshTables}>
-          <RefreshCcw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex space-x-4">
+          {currentUser?.role === 'super-admin' && (
+            <Button onClick={() => setShowCreateTableDialog(true)}>
+              Create New Table
+            </Button>
+          )}
+          <Button onClick={refreshTables}>
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
-      
+
       {currentUser?.role === 'super-admin' && (
         <div className="flex space-x-4">
           <div className="flex-1">
@@ -309,7 +342,7 @@ const Tables = () => {
           </div>
         </div>
       )}
-      
+
       {selectedTable ? (
         <Tabs defaultValue="management">
           <TabsList className="mb-4">
@@ -526,17 +559,6 @@ const Tables = () => {
                         
                         <div className="flex justify-between items-center">
                           <span className="text-sm">Average Rating:</span>
-                          <span className="font-medium">
-                            {tableResponses.filter(r => r.answer === 'YES').length > 0 ?
-                              Math.round((tableResponses.filter(r => r.answer === 'YES').length / 
-                                (tableResponses.filter(r => r.answer === 'YES' || r.answer === 'NO').length)) * 5) + '/5' :
-                              'N/A'
-                            }
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Status:</span>
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             selectedTable.status === 'active' 
                               ? 'bg-green-100 text-green-800' 
@@ -645,7 +667,7 @@ const Tables = () => {
           </CardContent>
         </Card>
       )}
-      
+
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -675,7 +697,7 @@ const Tables = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={showPlayerDealerDialog} onOpenChange={setShowPlayerDealerDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -723,6 +745,38 @@ const Tables = () => {
             <Button variant="outline" onClick={() => setShowPlayerDealerDialog(false)}>
               Cancel
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCreateTableDialog} onOpenChange={setShowCreateTableDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Table</DialogTitle>
+            <DialogDescription>
+              Create a new table by specifying the number of seats.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="seats">Number of Seats</Label>
+              <Input
+                id="seats"
+                type="number"
+                min={2}
+                max={12}
+                value={newTableSeats}
+                onChange={(e) => setNewTableSeats(parseInt(e.target.value) || 6)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTableDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTable}>Create Table</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
