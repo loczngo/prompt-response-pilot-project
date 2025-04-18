@@ -366,7 +366,14 @@ const Tables = () => {
                       key={seat.code}
                       variant="outline"
                       className="p-4 h-auto"
-                      onClick={() => handlePlayerDealerQuery(seat.code)}
+                      onClick={() => {
+                        // Handle seat selection for player-dealer role
+                        toast({
+                          title: "Player-Dealer Query Sent",
+                          description: `Sent query to seat ${seat.code}.`
+                        });
+                        setShowPlayerDealerDialog(false);
+                      }}
                     >
                       <div className="text-center">
                         <div className="font-medium">Seat {seat.code}</div>

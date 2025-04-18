@@ -1,5 +1,5 @@
 
-import { User, Seat, getUserForSeat } from '@/lib/mockDb';
+import { Seat, getUsers } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
 import { UserCheck, UserX } from 'lucide-react';
 
@@ -10,7 +10,8 @@ interface TableSeatProps {
 }
 
 export const TableSeat = ({ tableId, seat, onToggleStatus }: TableSeatProps) => {
-  const user = seat.userId ? getUserForSeat(tableId, seat.code) : undefined;
+  // Get user information directly from the users list
+  const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : undefined;
 
   return (
     <div 

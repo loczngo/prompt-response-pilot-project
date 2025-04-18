@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,10 +117,8 @@ const Prompts = () => {
     return true;
   });
   
-  // Helper function to determine if user can manage prompts
   const canManagePrompts = (userRole?: Role): boolean => {
-    if (userRole === 'super-admin') return true;
-    if (userRole === 'table-admin') return true;
+    if (userRole === 'super-admin' || userRole === 'table-admin') return true;
     return false;
   };
   
