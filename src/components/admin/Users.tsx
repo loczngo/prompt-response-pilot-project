@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Role, getUsers, createUser, updateUser, deleteUser } from '@/lib/mockDb';
+import { User, Role, getUsers, createUser, updateUser, deleteUser, getTables } from '@/lib/mockDb';
 import { Edit, Plus, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,9 @@ const Users = () => {
   const [showEditUser, setShowEditUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Add table selection state
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -30,6 +33,8 @@ const Users = () => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
+  const tables = getTables(); // Get available tables
+
   // Access control - only user-admin and super-admin can access
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'user-admin') {
     return (
@@ -77,7 +82,8 @@ const Users = () => {
       username,
       password,
       role,
-      status: isActive ? 'active' : 'inactive'
+      status: isActive ? 'active' : 'inactive',
+      tableNumber: role === 'table-admin' && selectedTable ? Number(selectedTable) : undefined
     });
     
     refreshUsers();
@@ -97,10 +103,10 @@ const Users = () => {
       firstName,
       lastName,
       role,
-      status: isActive ? 'active' : 'inactive'
+      status: isActive ? 'active' : 'inactive',
+      tableNumber: role === 'table-admin' && selectedTable ? Number(selectedTable) : undefined
     };
     
-    // Only update password if it was changed
     if (password) {
       updates.password = password;
     }
@@ -148,6 +154,7 @@ const Users = () => {
     setRole('table-admin');
     setIsActive(true);
     setSelectedUser(null);
+    setSelectedTable(null);
   };
   
   const openEditDialog = (user: User) => {
@@ -155,9 +162,10 @@ const Users = () => {
     setFirstName(user.firstName);
     setLastName(user.lastName);
     setUsername(user.username || '');
-    setPassword(''); // Don't show the existing password
+    setPassword('');
     setRole(user.role);
     setIsActive(user.status === 'active');
+    setSelectedTable(user.tableNumber?.toString() || null);
     setShowEditUser(true);
   };
   
@@ -234,7 +242,12 @@ const Users = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="role">Access Level</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as Role)}>
+                <Select value={role} onValueChange={(value) => {
+                  setRole(value as Role);
+                  if (value !== 'table-admin') {
+                    setSelectedTable(null);
+                  }
+                }}>
                   <SelectTrigger id="role">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
@@ -248,6 +261,27 @@ const Users = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {role === 'table-admin' && (
+                <div className="space-y-2">
+                  <Label htmlFor="table">Assigned Table</Label>
+                  <Select
+                    value={selectedTable || ''}
+                    onValueChange={setSelectedTable}
+                  >
+                    <SelectTrigger id="table">
+                      <SelectValue placeholder="Select table" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tables.map((table) => (
+                        <SelectItem key={table.id} value={table.id.toString()}>
+                          Table {table.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
               <div className="flex items-center space-x-2">
                 <Switch
@@ -338,7 +372,12 @@ const Users = () => {
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Access Level</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as Role)}>
+              <Select value={role} onValueChange={(value) => {
+                setRole(value as Role);
+                if (value !== 'table-admin') {
+                  setSelectedTable(null);
+                }
+              }}>
                 <SelectTrigger id="edit-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -351,6 +390,27 @@ const Users = () => {
                 </SelectContent>
               </Select>
             </div>
+            
+            {role === 'table-admin' && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-table">Assigned Table</Label>
+                <Select
+                  value={selectedTable || ''}
+                  onValueChange={setSelectedTable}
+                >
+                  <SelectTrigger id="edit-table">
+                    <SelectValue placeholder="Select table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tables.map((table) => (
+                      <SelectItem key={table.id} value={table.id.toString()}>
+                        Table {table.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             <div className="flex items-center space-x-2">
               <Switch
@@ -380,6 +440,7 @@ const Users = () => {
                 <th className="px-4 py-3 text-left font-medium">Name</th>
                 <th className="px-4 py-3 text-left font-medium">Username</th>
                 <th className="px-4 py-3 text-left font-medium">Permission Type</th>
+                <th className="px-4 py-3 text-left font-medium">Assigned Table</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-left font-medium">Last Active</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -388,7 +449,7 @@ const Users = () => {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
                     No users found.
                   </td>
                 </tr>
@@ -401,6 +462,14 @@ const Users = () => {
                       {user.role.split('-').map(word => 
                         word.charAt(0).toUpperCase() + word.slice(1)
                       ).join(' ')}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.role === 'table-admin' 
+                        ? user.tableNumber 
+                          ? `Table ${user.tableNumber}`
+                          : 'Not assigned'
+                        : '-'
+                      }
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

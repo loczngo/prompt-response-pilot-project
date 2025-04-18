@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,6 @@ const Announcements = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>(getAnnouncements());
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false);
   
-  // Form state
   const [announcementText, setAnnouncementText] = useState('');
   const [selectedTables, setSelectedTables] = useState<number[]>([]);
   const [selectAllTables, setSelectAllTables] = useState(true);
@@ -25,7 +23,6 @@ const Announcements = () => {
   const { user: currentUser } = useAuth();
   const tables = getTables();
   
-  // Access control - only table-admin and super-admin can access
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -60,12 +57,10 @@ const Announcements = () => {
       setSelectedTables(selectedTables.filter(id => id !== tableId));
     }
     
-    // If any table is unchecked, selectAll should be false
     if (!checked && selectAllTables) {
       setSelectAllTables(false);
     }
     
-    // If all tables are checked, selectAll should be true
     if (checked && selectedTables.length + 1 === tables.length) {
       setSelectAllTables(true);
       setSelectedTables([]);
@@ -104,7 +99,6 @@ const Announcements = () => {
     }
   };
   
-  // For table admin, filter to only show announcements for their table
   const filteredAnnouncements = announcements.filter(announcement => {
     if (currentUser?.role === 'table-admin' && currentUser.tableNumber) {
       return announcement.targetTables === null || 
@@ -144,43 +138,51 @@ const Announcements = () => {
               </div>
               
               <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="all-tables"
-                    checked={selectAllTables}
-                    onCheckedChange={handleSelectAllTablesChange}
-                  />
-                  <Label htmlFor="all-tables">All Tables</Label>
-                </div>
-                
-                {!selectAllTables && (
-                  <div className="space-y-2 ml-6 mt-2">
-                    <Label className="text-sm">Select Target Tables</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      {tables
-                        .filter(table => table.status === 'active')
-                        .map((table) => (
-                          <div key={table.id} className="flex items-center space-x-2">
-                            <Checkbox 
-                              id={`table-${table.id}`}
-                              checked={selectedTables.includes(table.id)}
-                              onCheckedChange={(checked) => 
-                                handleTableSelectionChange(table.id, checked as boolean)
-                              }
-                            />
-                            <Label htmlFor={`table-${table.id}`} className="text-sm">
-                              Table {table.id}
-                            </Label>
-                          </div>
-                        ))}
+                {currentUser?.role === 'table-admin' ? (
+                  <p className="text-sm text-muted-foreground">
+                    This announcement will be sent to your assigned table (Table {currentUser.tableNumber}).
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="all-tables"
+                        checked={selectAllTables}
+                        onCheckedChange={handleSelectAllTablesChange}
+                      />
+                      <Label htmlFor="all-tables">All Tables</Label>
                     </div>
                     
-                    {tables.filter(table => table.status === 'active').length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No active tables available.
-                      </p>
+                    {!selectAllTables && (
+                      <div className="space-y-2 ml-6 mt-2">
+                        <Label className="text-sm">Select Target Tables</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          {tables
+                            .filter(table => table.status === 'active')
+                            .map((table) => (
+                              <div key={table.id} className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={`table-${table.id}`}
+                                  checked={selectedTables.includes(table.id)}
+                                  onCheckedChange={(checked) => 
+                                    handleTableSelectionChange(table.id, checked as boolean)
+                                  }
+                                />
+                                <Label htmlFor={`table-${table.id}`} className="text-sm">
+                                  Table {table.id}
+                                </Label>
+                              </div>
+                            ))}
+                        </div>
+                        
+                        {tables.filter(table => table.status === 'active').length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            No active tables available.
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -200,7 +202,6 @@ const Announcements = () => {
         </Dialog>
       </div>
       
-      {/* Announcements List */}
       <div className="space-y-4">
         {filteredAnnouncements.length === 0 ? (
           <Card>

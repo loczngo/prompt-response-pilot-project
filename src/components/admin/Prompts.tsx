@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ const Prompts = () => {
   const [showEditPrompt, setShowEditPrompt] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   
-  // Form state
   const [promptText, setPromptText] = useState('');
   const [targetTable, setTargetTable] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
@@ -27,7 +25,6 @@ const Prompts = () => {
   const { user } = useAuth();
   const tables = getTables();
   
-  // Can only be accessed by super-admin
   if (user?.role !== 'super-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -113,77 +110,93 @@ const Prompts = () => {
     setShowEditPrompt(true);
   };
   
+  const filteredPrompts = prompts.filter(prompt => {
+    if (user?.role === 'table-admin') {
+      return prompt.targetTable === user.tableNumber || prompt.targetTable === null;
+    }
+    return true;
+  });
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Prompts</h1>
-        <Dialog open={showAddPrompt} onOpenChange={setShowAddPrompt}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Prompt
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create New Prompt</DialogTitle>
-              <DialogDescription>
-                Create a new prompt to be sent to tables.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="prompt-text">Prompt Text</Label>
-                <Input
-                  id="prompt-text"
-                  placeholder="Enter prompt question"
-                  value={promptText}
-                  onChange={(e) => setPromptText(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="target-table">Target Table</Label>
-                <Select
-                  value={targetTable || 'all'}
-                  onValueChange={(value) => setTargetTable(value === 'all' ? null : value)}
-                >
-                  <SelectTrigger id="target-table">
-                    <SelectValue placeholder="Select target table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tables</SelectItem>
-                    {tables.map((table) => (
-                      <SelectItem key={table.id} value={table.id.toString()}>
-                        Table {table.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="active-status"
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                />
-                <Label htmlFor="active-status">Active</Label>
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddPrompt(false)}>
-                Cancel
+        {(user?.role === 'super-admin' || user?.role === 'table-admin') && (
+          <Dialog open={showAddPrompt} onOpenChange={setShowAddPrompt}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Prompt
               </Button>
-              <Button onClick={handleAddPrompt}>Create</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create New Prompt</DialogTitle>
+                <DialogDescription>
+                  Create a new prompt to be sent to tables.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="prompt-text">Prompt Text</Label>
+                  <Input
+                    id="prompt-text"
+                    placeholder="Enter prompt question"
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="target-table">Target Table</Label>
+                  <Select
+                    value={targetTable || 'all'}
+                    onValueChange={(value) => setTargetTable(value === 'all' ? null : value)}
+                    disabled={user?.role === 'table-admin'}
+                  >
+                    <SelectTrigger id="target-table">
+                      <SelectValue placeholder="Select target table" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tables</SelectItem>
+                      {(user?.role === 'super-admin' ? tables : tables.filter(t => t.id === user?.tableNumber))
+                        .map((table) => (
+                          <SelectItem key={table.id} value={table.id.toString()}>
+                            Table {table.id}
+                          </SelectItem>
+                        ))
+                      }
+                    </SelectContent>
+                  </Select>
+                  {user?.role === 'table-admin' && (
+                    <p className="text-xs text-muted-foreground">
+                      As a Table Admin, prompts will be automatically targeted to your assigned table.
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="active-status"
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                  />
+                  <Label htmlFor="active-status">Active</Label>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddPrompt(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddPrompt}>Create</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       
-      {/* Edit Prompt Dialog */}
       <Dialog open={showEditPrompt} onOpenChange={setShowEditPrompt}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -243,16 +256,15 @@ const Prompts = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Prompts List */}
       <div className="space-y-4">
-        {prompts.length === 0 ? (
+        {filteredPrompts.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">No prompts found. Create your first prompt.</p>
             </CardContent>
           </Card>
         ) : (
-          prompts.map((prompt) => (
+          filteredPrompts.map((prompt) => (
             <Card key={prompt.id} className={prompt.status === 'inactive' ? 'opacity-60' : ''}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
