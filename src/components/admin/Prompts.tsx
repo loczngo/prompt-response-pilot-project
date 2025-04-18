@@ -120,7 +120,9 @@ const Prompts = () => {
   
   // Helper function to determine if user can manage prompts
   const canManagePrompts = (userRole?: Role): boolean => {
-    return userRole === 'super-admin' || userRole === 'table-admin';
+    if (userRole === 'super-admin') return true;
+    if (userRole === 'table-admin') return true;
+    return false;
   };
   
   return (
