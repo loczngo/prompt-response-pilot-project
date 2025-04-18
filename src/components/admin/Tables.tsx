@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -37,11 +35,11 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, parseISO } from 'date-fns';
+import { useTableManagement } from '@/hooks/use-table-management';
+import { TableSelector } from './table/TableSelector';
+import { TableSeat } from './table/TableSeat';
 
 const Tables = () => {
-  const [tables, setTables] = useState<Table[]>(getTables());
-  const [tableNumber, setTableNumber] = useState('');
-  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
   const [tableMessage, setTableMessage] = useState('');
   const [showMessageDialog, setShowMessageDialog] = useState(false);
@@ -51,6 +49,16 @@ const Tables = () => {
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  const {
+    tables,
+    tableNumber,
+    selectedTable,
+    setTableNumber,
+    refreshTables,
+    handleTableSelect,
+    handleTableStatusToggle,
+    handleSeatStatusToggle
+  } = useTableManagement();
 
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
@@ -74,52 +82,6 @@ const Tables = () => {
       handleTableSelect();
     }
   }, [currentUser]);
-
-  const refreshTables = () => {
-    setTables(getTables());
-    if (selectedTable) {
-      setSelectedTable(getTable(selectedTable.id));
-    }
-  };
-
-  const handleTableSelect = () => {
-    if (!tableNumber) {
-      setSelectedTable(null);
-      return;
-    }
-    
-    const table = getTable(Number(tableNumber));
-    setSelectedTable(table || null);
-    
-    if (!table) {
-      toast({
-        title: "Table Not Found",
-        description: `Table ${tableNumber} does not exist.`,
-        variant: "destructive",
-      });
-    } else {
-      if (table.currentPromptId) {
-        setSelectedPromptId(table.currentPromptId);
-      }
-    }
-  };
-
-  const handleSeatStatusToggle = (seatCode: string) => {
-    if (!selectedTable) return;
-    
-    const seat = selectedTable.seats.find(s => s.code === seatCode);
-    if (!seat) return;
-    
-    const newStatus = seat.status === 'active' ? 'inactive' : 'active';
-    
-    updateTableSeat(selectedTable.id, seatCode, { status: newStatus });
-    refreshTables();
-    
-    toast({
-      title: `Seat ${seatCode} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
-      description: `Seat ${seatCode} is now ${newStatus}.`,
-    });
-  };
 
   const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
@@ -300,21 +262,6 @@ const Tables = () => {
     });
   };
 
-  const handleTableStatusToggle = (tableId: number) => {
-    const table = getTable(tableId);
-    if (!table) return;
-    
-    const newStatus = table.status === 'active' ? 'inactive' : 'active';
-    
-    updateTable(tableId, { status: newStatus });
-    refreshTables();
-    
-    toast({
-      title: `Table ${tableId} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
-      description: `Table ${tableId} is now ${newStatus}.`,
-    });
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -333,38 +280,14 @@ const Tables = () => {
       </div>
 
       {currentUser?.role === 'super-admin' && (
-        <div className="flex space-x-4">
-          <div className="flex-1">
-            <Label htmlFor="table-number">Select Table</Label>
-            <div className="flex space-x-4 mt-2">
-              <Select 
-                value={tableNumber} 
-                onValueChange={setTableNumber}
-              >
-                <SelectTrigger id="table-number" className="flex-1">
-                  <SelectValue placeholder="Select table" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tables.map((table) => (
-                    <SelectItem key={table.id} value={table.id.toString()}>
-                      Table {table.id} ({table.status})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleTableSelect}>View Table</Button>
-              {selectedTable && (
-                <Button 
-                  variant="outline"
-                  onClick={() => handleTableStatusToggle(selectedTable.id)}
-                  className={selectedTable.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
-                >
-                  {selectedTable.status === 'active' ? 'Disable' : 'Enable'} Table
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        <TableSelector
+          tables={tables}
+          tableNumber={tableNumber}
+          selectedTable={selectedTable}
+          onTableNumberChange={setTableNumber}
+          onTableSelect={handleTableSelect}
+          onTableStatusToggle={handleTableStatusToggle}
+        />
       )}
 
       {selectedTable ? (
@@ -392,61 +315,12 @@ const Tables = () => {
                         : undefined;
                         
                       return (
-                        <div 
-                          key={seat.code} 
-                          className={`p-3 rounded-md border ${
-                            seat.status === 'active' 
-                              ? 'bg-accent border-primary/30' 
-                              : 'bg-muted border-muted'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className={`h-8 w-8 rounded-full flex items-center justify-center mr-3 ${
-                                seat.status === 'active' 
-                                  ? seat.isDealer 
-                                    ? 'bg-primary text-primary-foreground' 
-                                    : 'bg-accent-foreground/10 text-accent-foreground' 
-                                  : 'bg-muted-foreground/20 text-muted-foreground'
-                              }`}>
-                                {seat.code}
-                              </div>
-                              <div>
-                                <p className="font-medium">
-                                  Seat {seat.code}
-                                  {seat.isDealer && (
-                                    <span className="ml-2 text-xs bg-primary/20 text-primary-foreground px-2 py-1 rounded-full">
-                                      Dealer ({seat.dealerHandsLeft} hands left)
-                                    </span>
-                                  )}
-                                </p>
-                                {user ? (
-                                  <p className="text-sm text-muted-foreground">
-                                    {user.firstName} {user.lastName}
-                                  </p>
-                                ) : (
-                                  <p className="text-sm text-muted-foreground italic">
-                                    Not occupied
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleSeatStatusToggle(seat.code)}
-                              >
-                                {seat.status === 'active' ? (
-                                  <UserX className="h-4 w-4" />
-                                ) : (
-                                  <UserCheck className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
+                        <TableSeat
+                          key={seat.code}
+                          tableId={selectedTable.id}
+                          seat={seat}
+                          onToggleStatus={(seatCode) => handleSeatStatusToggle(selectedTable.id, seatCode)}
+                        />
                       );
                     })}
                     
