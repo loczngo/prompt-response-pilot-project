@@ -102,7 +102,7 @@ const GuestLogin = ({ onBack }: GuestLoginProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   {tables.length === 0 ? (
-                    <SelectItem value="none" disabled>No active tables available</SelectItem>
+                    <SelectItem value="no-tables" disabled>No active tables available</SelectItem>
                   ) : (
                     tables.map((table) => (
                       <SelectItem key={table.id} value={table.id.toString()}>
@@ -128,9 +128,9 @@ const GuestLogin = ({ onBack }: GuestLoginProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   {!tableNumber ? (
-                    <SelectItem value="none" disabled>Select a table first</SelectItem>
+                    <SelectItem value="select-table-first" disabled>Select a table first</SelectItem>
                   ) : availableSeats.length === 0 ? (
-                    <SelectItem value="none" disabled>No available seats</SelectItem>
+                    <SelectItem value="no-seats" disabled>No available seats</SelectItem>
                   ) : (
                     availableSeats.map((seat) => (
                       <SelectItem key={seat.code} value={seat.code}>

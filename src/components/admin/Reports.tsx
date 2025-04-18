@@ -188,7 +188,7 @@ const Reports = () => {
                   <SelectValue placeholder="All Tables" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Tables</SelectItem>
+                  <SelectItem value="all-tables">All Tables</SelectItem>
                   {tables.map((table) => (
                     <SelectItem key={table.id} value={table.id.toString()}>
                       Table {table.id}
@@ -220,7 +220,7 @@ const Reports = () => {
                   <SelectValue placeholder="All Activities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Activities</SelectItem>
+                  <SelectItem value="all-activities">All Activities</SelectItem>
                   <SelectItem value="YES">YES Responses</SelectItem>
                   <SelectItem value="NO">NO Responses</SelectItem>
                   <SelectItem value="SERVICE">Service Requests</SelectItem>
@@ -239,7 +239,7 @@ const Reports = () => {
                   <SelectValue placeholder="Any Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Status</SelectItem>
+                  <SelectItem value="any-status">Any Status</SelectItem>
                   <SelectItem value="dealer">Is Dealer</SelectItem>
                   <SelectItem value="not-dealer">Not Dealer</SelectItem>
                 </SelectContent>
@@ -257,7 +257,7 @@ const Reports = () => {
                   <SelectValue placeholder="All Games" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Games</SelectItem>
+                  <SelectItem value="all-games">All Games</SelectItem>
                   <SelectItem value="poker">Poker</SelectItem>
                   <SelectItem value="blackjack">Blackjack</SelectItem>
                   <SelectItem value="roulette">Roulette</SelectItem>
@@ -276,7 +276,7 @@ const Reports = () => {
                   <SelectValue placeholder="Any Admin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Admin</SelectItem>
+                  <SelectItem value="any-admin">Any Admin</SelectItem>
                   {tableAdmins.map((admin) => (
                     <SelectItem key={admin.id} value={admin.id}>
                       {admin.firstName} {admin.lastName}

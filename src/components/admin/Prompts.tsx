@@ -146,7 +146,7 @@ const Prompts = () => {
               <div className="space-y-2">
                 <Label htmlFor="target-table">Target Table</Label>
                 <Select
-                  value={targetTable || ''}
+                  value={targetTable || 'all'}
                   onValueChange={(value) => setTargetTable(value === 'all' ? null : value)}
                 >
                   <SelectTrigger id="target-table">
@@ -207,7 +207,7 @@ const Prompts = () => {
             <div className="space-y-2">
               <Label htmlFor="edit-target-table">Target Table</Label>
               <Select
-                value={targetTable === null ? 'all' : targetTable || ''}
+                value={targetTable === null ? 'all' : targetTable || 'all'}
                 onValueChange={(value) => setTargetTable(value === 'all' ? null : value)}
               >
                 <SelectTrigger id="edit-target-table">

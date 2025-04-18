@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +50,6 @@ const Tables = () => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
-  // Access control - only table-admin and super-admin can access
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -68,7 +66,6 @@ const Tables = () => {
     );
   }
   
-  // Table admin can only manage their assigned table
   useEffect(() => {
     if (currentUser?.role === 'table-admin' && currentUser?.tableNumber) {
       setTableNumber(currentUser.tableNumber.toString());
@@ -99,7 +96,6 @@ const Tables = () => {
         variant: "destructive",
       });
     } else {
-      // Set the current prompt if available
       if (table.currentPromptId) {
         setSelectedPromptId(table.currentPromptId);
       }
@@ -140,8 +136,6 @@ const Tables = () => {
   const handleSendMessage = () => {
     if (!selectedTable || !tableMessage) return;
     
-    // In a real system, we would send this message to the table
-    // For the POC, we'll just show a toast
     toast({
       title: "Message Sent",
       description: `Message has been sent to Table ${selectedTable.id}.`,
@@ -154,8 +148,6 @@ const Tables = () => {
   const handleExportData = () => {
     if (!selectedTable) return;
     
-    // In a real system, we would generate a CSV file
-    // For the POC, we'll just show a toast
     toast({
       title: "Data Exported",
       description: `Table ${selectedTable.id} data has been exported.`,
@@ -165,8 +157,6 @@ const Tables = () => {
   const handlePrintReport = () => {
     if (!selectedTable) return;
     
-    // In a real system, we would generate a printable report
-    // For the POC, we'll just show a toast
     toast({
       title: "Report Printed",
       description: `Table ${selectedTable.id} report has been sent to printer.`,
@@ -182,7 +172,6 @@ const Tables = () => {
   const handlePlayerDealerQuery = (seatCode: string) => {
     if (!selectedTable) return;
     
-    // Find a prompt for player-dealer or create one
     const promptText = "Would you like to be the player-dealer for the next round?";
     let playerDealerPrompt = getPrompts().find(p => 
       p.text.toLowerCase().includes("player-dealer") && 
@@ -190,7 +179,6 @@ const Tables = () => {
     );
     
     if (!playerDealerPrompt) {
-      // For demo purposes, we'll just use an existing prompt with the table's currentPromptId
       playerDealerPrompt = getPrompts().find(p => p.id === selectedTable.currentPromptId);
     }
     
@@ -203,15 +191,12 @@ const Tables = () => {
       return;
     }
     
-    // Update table to show this prompt
     updateTable(selectedTable.id, { currentPromptId: playerDealerPrompt.id });
     
-    // Mock a response after 3 seconds
     setTimeout(() => {
       const seat = selectedTable.seats.find(s => s.code === seatCode);
       if (!seat || !seat.userId) return;
       
-      // Random response (YES/NO)
       const answer = Math.random() > 0.5 ? 'YES' : 'NO';
       
       createResponse({
@@ -223,10 +208,9 @@ const Tables = () => {
       });
       
       if (answer === 'YES') {
-        // Update seat to be dealer
         updateTableSeat(selectedTable.id, seatCode, { 
           isDealer: true,
-          dealerHandsLeft: 2 // Dealer for two hands
+          dealerHandsLeft: 2
         });
         
         toast({
@@ -269,7 +253,6 @@ const Tables = () => {
     }
   };
   
-  // Helper to get username for a seat
   const getUserForSeat = (tableId: number, seatCode: string): User | undefined => {
     const table = getTable(tableId);
     if (!table) return undefined;
@@ -280,13 +263,11 @@ const Tables = () => {
     return getUsers().find(u => u.id === seat.userId);
   };
   
-  // Get active prompts
   const activePrompts = getPrompts().filter(p => 
     p.status === 'active' && 
     (p.targetTable === null || (selectedTable && p.targetTable === selectedTable.id))
   );
   
-  // Get responses for the selected table
   const tableResponses = selectedTable 
     ? getResponses()
         .filter(r => r.tableNumber === selectedTable.id)
@@ -303,7 +284,6 @@ const Tables = () => {
         </Button>
       </div>
       
-      {/* Table Selector (only for super-admin) */}
       {currentUser?.role === 'super-admin' && (
         <div className="flex space-x-4">
           <div className="flex-1">
@@ -330,7 +310,6 @@ const Tables = () => {
         </div>
       )}
       
-      {/* Selected Table View */}
       {selectedTable ? (
         <Tabs defaultValue="management">
           <TabsList className="mb-4">
@@ -338,10 +317,8 @@ const Tables = () => {
             <TabsTrigger value="responses">Responses</TabsTrigger>
           </TabsList>
           
-          {/* Table Management Tab */}
           <TabsContent value="management">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Seat Management */}
               <Card className="lg:col-span-1">
                 <CardHeader>
                   <CardTitle>Table {selectedTable.id} Seats</CardTitle>
@@ -430,7 +407,6 @@ const Tables = () => {
                 </CardContent>
               </Card>
               
-              {/* Middle Column - Prompt Management */}
               <Card className="lg:col-span-1">
                 <CardHeader>
                   <CardTitle>Prompt Control</CardTitle>
@@ -451,11 +427,15 @@ const Tables = () => {
                           <SelectValue placeholder="Select prompt" />
                         </SelectTrigger>
                         <SelectContent>
-                          {activePrompts.map((prompt) => (
-                            <SelectItem key={prompt.id} value={prompt.id}>
-                              {prompt.text}
-                            </SelectItem>
-                          ))}
+                          {activePrompts.length === 0 ? (
+                            <SelectItem value="no-prompts" disabled>No active prompts available</SelectItem>
+                          ) : (
+                            activePrompts.map((prompt) => (
+                              <SelectItem key={prompt.id} value={prompt.id}>
+                                {prompt.text}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -469,7 +449,6 @@ const Tables = () => {
                       Send Prompt
                     </Button>
                     
-                    {/* Current Prompt Display */}
                     <div className="mt-6">
                       <h3 className="text-sm font-medium mb-2">Current Prompt</h3>
                       {selectedTable.currentPromptId ? (
@@ -486,7 +465,6 @@ const Tables = () => {
                 </CardContent>
               </Card>
               
-              {/* Right Column - Admin Actions */}
               <Card className="lg:col-span-1">
                 <CardHeader>
                   <CardTitle>Administrative Actions</CardTitle>
@@ -524,7 +502,6 @@ const Tables = () => {
                       Print Report
                     </Button>
                     
-                    {/* Stats Display */}
                     <div className="mt-6 pt-4 border-t">
                       <h3 className="text-sm font-medium mb-4">Table Statistics</h3>
                       
@@ -576,7 +553,6 @@ const Tables = () => {
             </div>
           </TabsContent>
           
-          {/* Responses Tab */}
           <TabsContent value="responses">
             <Card>
               <CardHeader>
@@ -670,7 +646,6 @@ const Tables = () => {
         </Card>
       )}
       
-      {/* Send Message Dialog */}
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -701,7 +676,6 @@ const Tables = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Player-Dealer Query Dialog */}
       <Dialog open={showPlayerDealerDialog} onOpenChange={setShowPlayerDealerDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
