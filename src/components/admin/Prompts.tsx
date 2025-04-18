@@ -118,9 +118,9 @@ const Prompts = () => {
     return true;
   });
   
-  // Helper function to determine if user can create/edit prompts
-  const canManagePrompts = (role?: Role): boolean => {
-    return role === 'super-admin' || role === 'table-admin';
+  // Helper function to determine if user can manage prompts
+  const canManagePrompts = (userRole?: Role): boolean => {
+    return userRole === 'super-admin' || userRole === 'table-admin';
   };
   
   return (

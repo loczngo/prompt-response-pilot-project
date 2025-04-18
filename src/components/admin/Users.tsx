@@ -256,6 +256,7 @@ const Users = () => {
                     {currentUser?.role === 'super-admin' && (
                       <SelectItem value="super-admin">Super Admin</SelectItem>
                     )}
+                    {/* Both super-admin and user-admin can create user-admin and table-admin */}
                     <SelectItem value="user-admin">User Admin</SelectItem>
                     <SelectItem value="table-admin">Table Admin</SelectItem>
                   </SelectContent>
@@ -385,6 +386,7 @@ const Users = () => {
                   {currentUser?.role === 'super-admin' && (
                     <SelectItem value="super-admin">Super Admin</SelectItem>
                   )}
+                  {/* Both super-admin and user-admin can edit to user-admin or table-admin roles */}
                   <SelectItem value="user-admin">User Admin</SelectItem>
                   <SelectItem value="table-admin">Table Admin</SelectItem>
                 </SelectContent>
