@@ -23,6 +23,7 @@ const AdminLogin = ({ role, onBack }: AdminLoginProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { loginAdmin } = useAuth();
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,10 +31,13 @@ const AdminLogin = ({ role, onBack }: AdminLoginProps) => {
     if (!username || !password) return;
     
     setIsSubmitting(true);
+    setError(null);
+    
     try {
       await loginAdmin(username, password);
     } catch (error) {
-      // Error is handled in the AuthContext
+      console.error('Login attempt failed:', error);
+      setError('Invalid username or password. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -61,6 +65,12 @@ const AdminLogin = ({ role, onBack }: AdminLoginProps) => {
         
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm bg-destructive/10 text-destructive rounded-md">
+                {error}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <label htmlFor="username" className="text-sm font-medium">
                 Username

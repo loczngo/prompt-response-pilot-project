@@ -204,11 +204,15 @@ export const getUsers = (): User[] => {
 
 export const createUser = (user: Omit<User, 'id' | 'lastActive'>): User => {
   const users = getUsers();
+  
+  // Ensure username is stored in lowercase for consistency
   const newUser = {
     ...user,
     id: Date.now().toString(),
+    username: user.username?.toLowerCase(),
     lastActive: new Date().toISOString()
   };
+  
   localStorage.setItem('prs_users', JSON.stringify([...users, newUser]));
   return newUser;
 };
@@ -218,7 +222,13 @@ export const updateUser = (id: string, updates: Partial<User>): User | null => {
   const userIndex = users.findIndex(u => u.id === id);
   if (userIndex === -1) return null;
   
-  const updatedUser = { ...users[userIndex], ...updates, lastActive: new Date().toISOString() };
+  // Ensure username is stored in lowercase if it's being updated
+  const processedUpdates = { ...updates };
+  if (updates.username) {
+    processedUpdates.username = updates.username.toLowerCase();
+  }
+  
+  const updatedUser = { ...users[userIndex], ...processedUpdates, lastActive: new Date().toISOString() };
   users[userIndex] = updatedUser;
   localStorage.setItem('prs_users', JSON.stringify(users));
   return updatedUser;
@@ -235,7 +245,13 @@ export const deleteUser = (id: string): boolean => {
 
 export const authenticateUser = (username: string, password: string): User | null => {
   const users = getUsers();
-  const user = users.find(u => u.username === username && u.password === password && u.status === 'active');
+  // Make authentication case-insensitive for username
+  const user = users.find(u => 
+    u.username?.toLowerCase() === username.toLowerCase() && 
+    u.password === password && 
+    u.status === 'active'
+  );
+  
   if (user) {
     updateUser(user.id, { lastActive: new Date().toISOString() });
     return user;

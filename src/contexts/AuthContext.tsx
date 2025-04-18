@@ -1,10 +1,11 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { 
   User, 
   authenticateUser, 
-  authenticateGuest
+  authenticateGuest,
+  getUsers
 } from '@/lib/mockDb';
 
 type AuthContextType = {
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check for saved authentication in session storage
@@ -33,7 +35,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginAdmin = async (username: string, password: string) => {
     try {
       setIsLoading(true);
-      const authenticatedUser = authenticateUser(username, password);
+      
+      // First try the standard authentication
+      let authenticatedUser = authenticateUser(username, password);
+      
+      // If standard authentication fails, check if this is a case-sensitivity issue
+      if (!authenticatedUser) {
+        const allUsers = getUsers();
+        // Find user with case-insensitive username match and matching password
+        const matchedUser = allUsers.find(u => 
+          u.username?.toLowerCase() === username.toLowerCase() && 
+          u.password === password && 
+          u.status === 'active'
+        );
+        
+        if (matchedUser) {
+          authenticatedUser = matchedUser;
+        }
+      }
       
       if (authenticatedUser) {
         setUser(authenticatedUser);
