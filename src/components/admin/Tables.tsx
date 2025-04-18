@@ -37,7 +37,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, parseISO } from 'date-fns';
 import { useTableManagement } from '@/hooks/use-table-management';
 import { TableSelector } from './table/TableSelector';
-import { TableSeat } from './table/TableSeat';
+import { TableManagementSection } from './table/TableManagementSection';
+import { TableControlsSection } from './table/TableControlsSection';
+import { TableResponsesSection } from './table/TableResponsesSection';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const Tables = () => {
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
@@ -89,11 +92,9 @@ const Tables = () => {
     updateTable(selectedTable.id, { currentPromptId: selectedPromptId });
     refreshTables();
     
-    const prompt = getPrompts().find(p => p.id === selectedPromptId);
-    
     toast({
       title: "Prompt Sent",
-      description: `"${prompt?.text}" has been sent to Table ${selectedTable.id}.`,
+      description: "The prompt has been sent to the table.",
     });
   };
 
@@ -127,78 +128,12 @@ const Tables = () => {
     });
   };
 
-  const initiatePlayerDealerQuery = () => {
+  const handlePlayerDealerQuery = () => {
     if (!selectedTable) return;
-    
     setShowPlayerDealerDialog(true);
   };
 
-  const handlePlayerDealerQuery = (seatCode: string) => {
-    if (!selectedTable) return;
-    
-    const promptText = "Would you like to be the player-dealer for the next round?";
-    let playerDealerPrompt = getPrompts().find(p => 
-      p.text.toLowerCase().includes("player-dealer") && 
-      p.targetTable === selectedTable.id
-    );
-    
-    if (!playerDealerPrompt) {
-      playerDealerPrompt = getPrompts().find(p => p.id === selectedTable.currentPromptId);
-    }
-    
-    if (!playerDealerPrompt) {
-      toast({
-        title: "Error",
-        description: "No player-dealer prompt available.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    updateTable(selectedTable.id, { currentPromptId: playerDealerPrompt.id });
-    
-    setTimeout(() => {
-      const seat = selectedTable.seats.find(s => s.code === seatCode);
-      if (!seat || !seat.userId) return;
-      
-      const answer = Math.random() > 0.5 ? 'YES' : 'NO';
-      
-      createResponse({
-        userId: seat.userId,
-        promptId: playerDealerPrompt!.id,
-        tableNumber: selectedTable.id,
-        seatCode,
-        answer
-      });
-      
-      if (answer === 'YES') {
-        updateTableSeat(selectedTable.id, seatCode, { 
-          isDealer: true,
-          dealerHandsLeft: 2
-        });
-        
-        toast({
-          title: "Player-Dealer Assigned",
-          description: `Seat ${seatCode} has accepted the Player-Dealer role for 2 hands.`,
-        });
-      } else {
-        toast({
-          title: "Player-Dealer Declined",
-          description: `Seat ${seatCode} has declined the Player-Dealer role.`,
-        });
-      }
-      
-      refreshTables();
-      setShowPlayerDealerDialog(false);
-    }, 3000);
-    
-    toast({
-      title: "Player-Dealer Request Sent",
-      description: `Seat ${seatCode} has been prompted to be the Player-Dealer.`,
-    });
-  };
-
-  const deletePlayerResponse = (responseId: string) => {
+  const handleDeleteResponse = (responseId: string) => {
     if (window.confirm('Are you sure you want to delete this response?')) {
       deleteResponse(responseId);
       toast({
@@ -208,35 +143,6 @@ const Tables = () => {
       refreshTables();
     }
   };
-
-  const formatDate = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), 'MMM d, yyyy h:mm a');
-    } catch (error) {
-      return 'Invalid date';
-    }
-  };
-
-  const getUserForSeat = (tableId: number, seatCode: string): User | undefined => {
-    const table = getTable(tableId);
-    if (!table) return undefined;
-    
-    const seat = table.seats.find(s => s.code === seatCode);
-    if (!seat || !seat.userId) return undefined;
-    
-    return getUsers().find(u => u.id === seat.userId);
-  };
-
-  const activePrompts = getPrompts().filter(p => 
-    p.status === 'active' && 
-    (p.targetTable === null || (selectedTable && p.targetTable === selectedTable.id))
-  );
-
-  const tableResponses = selectedTable 
-    ? getResponses()
-        .filter(r => r.tableNumber === selectedTable.id)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    : [];
 
   const handleCreateTable = () => {
     const tables = getTables();
@@ -299,102 +205,18 @@ const Tables = () => {
           
           <TabsContent value="management">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle>Table {selectedTable.id} Seats</CardTitle>
-                  <CardDescription>
-                    Manage seats and player assignments
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent>
-                  <div className="space-y-4">
-                    {selectedTable.seats.map((seat) => {
-                      const user = seat.userId 
-                        ? getUserForSeat(selectedTable.id, seat.code) 
-                        : undefined;
-                        
-                      return (
-                        <TableSeat
-                          key={seat.code}
-                          tableId={selectedTable.id}
-                          seat={seat}
-                          onToggleStatus={(seatCode) => handleSeatStatusToggle(selectedTable.id, seatCode)}
-                        />
-                      );
-                    })}
-                    
-                    <div className="mt-6 pt-4 border-t">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={initiatePlayerDealerQuery}
-                      >
-                        <ArrowUpDown className="h-4 w-4 mr-2" />
-                        Player-Dealer Inquiry
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <TableManagementSection
+                selectedTable={selectedTable}
+                onSeatStatusToggle={handleSeatStatusToggle}
+                onPlayerDealerQuery={handlePlayerDealerQuery}
+              />
               
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle>Prompt Control</CardTitle>
-                  <CardDescription>
-                    Send prompts to the table
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="prompt-select">Select Prompt</Label>
-                      <Select
-                        value={selectedPromptId}
-                        onValueChange={setSelectedPromptId}
-                      >
-                        <SelectTrigger id="prompt-select">
-                          <SelectValue placeholder="Select prompt" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {activePrompts.length === 0 ? (
-                            <SelectItem value="no-prompts" disabled>No active prompts available</SelectItem>
-                          ) : (
-                            activePrompts.map((prompt) => (
-                              <SelectItem key={prompt.id} value={prompt.id}>
-                                {prompt.text}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <Button
-                      className="w-full"
-                      disabled={!selectedPromptId}
-                      onClick={handleSendPrompt}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Send Prompt
-                    </Button>
-                    
-                    <div className="mt-6">
-                      <h3 className="text-sm font-medium mb-2">Current Prompt</h3>
-                      {selectedTable.currentPromptId ? (
-                        <div className="p-3 bg-accent rounded-md border border-primary/30">
-                          {getPrompts().find(p => p.id === selectedTable.currentPromptId)?.text || 'Unknown prompt'}
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-muted rounded-md text-muted-foreground">
-                          No active prompt
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <TableControlsSection
+                selectedTable={selectedTable}
+                selectedPromptId={selectedPromptId}
+                onPromptSelect={setSelectedPromptId}
+                onSendPrompt={handleSendPrompt}
+              />
               
               <Card className="lg:col-span-1">
                 <CardHeader>
@@ -448,10 +270,10 @@ const Tables = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm">Response Rate:</span>
                           <span className="font-medium">
-                            {tableResponses.length > 0 ? 
+                            {/* {tableResponses.length > 0 ? 
                               Math.round((tableResponses.length / selectedTable.seats.filter(s => s.status === 'active').length) * 100) + '%' : 
                               '0%'
-                            }
+                            } */}0%
                           </span>
                         </div>
                         
@@ -474,83 +296,10 @@ const Tables = () => {
           </TabsContent>
           
           <TabsContent value="responses">
-            <Card>
-              <CardHeader>
-                <CardTitle>Table {selectedTable.id} Responses</CardTitle>
-                <CardDescription>
-                  View all player responses from this table
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium">Guest Name</th>
-                        <th className="px-4 py-3 text-left font-medium">Prompt Question</th>
-                        <th className="px-4 py-3 text-left font-medium">Response</th>
-                        <th className="px-4 py-3 text-left font-medium">Seat</th>
-                        <th className="px-4 py-3 text-left font-medium">Time</th>
-                        <th className="px-4 py-3 text-left font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tableResponses.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                            No responses recorded for this table.
-                          </td>
-                        </tr>
-                      ) : (
-                        tableResponses.map((response) => {
-                          const prompt = getPrompts().find(p => p.id === response.promptId);
-                          const user = getUsers().find(u => u.id === response.userId);
-                          
-                          return (
-                            <tr key={response.id} className="border-b">
-                              <td className="px-4 py-3">
-                                {user ? `${user.firstName} ${user.lastName}` : 'Unknown Guest'}
-                              </td>
-                              <td className="px-4 py-3 max-w-xs truncate">
-                                {prompt?.text || 'Unknown prompt'}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  response.answer === 'YES' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : response.answer === 'NO'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {response.answer}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                {response.seatCode}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatDate(response.timestamp)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive h-8"
-                                  onClick={() => deletePlayerResponse(response.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <TableResponsesSection
+              selectedTable={selectedTable}
+              onDeleteResponse={handleDeleteResponse}
+            />
           </TabsContent>
         </Tabs>
       ) : (
@@ -610,7 +359,7 @@ const Tables = () => {
               {selectedTable?.seats
                 .filter(seat => seat.status === 'active' && seat.userId && !seat.isDealer)
                 .map(seat => {
-                  const user = getUserForSeat(selectedTable.id, seat.code);
+                  const user = getUsers().find(u => u.id === seat.userId);
                   
                   return (
                     <Button
