@@ -1,167 +1,194 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, LoaderCircle } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from '@/hooks/use-toast';
 import { getTables } from '@/lib/mockDb';
 
-type GuestLoginProps = {
-  onBack: () => void;
-};
-
-const GuestLogin = ({ onBack }: GuestLoginProps) => {
+const GuestLogin = () => {
   const [name, setName] = useState('');
   const [tableNumber, setTableNumber] = useState('');
   const [seatCode, setSeatCode] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { loginGuest } = useAuth();
-  
-  // Get available tables
-  const tables = getTables().filter(table => table.status === 'active');
-  
-  // Get available seats for selected table
-  const getAvailableSeats = () => {
-    if (!tableNumber) return [];
+  const [availableSeats, setAvailableSeats] = useState<string[]>([]);
+  const [activeTables, setActiveTables] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { loginAsGuest } = useAuth();
+  const { toast } = useToast();
+
+  // Load active tables when component mounts
+  useEffect(() => {
+    // Get all active tables
+    const tables = getTables();
+    const activeTableIds = tables
+      .filter(table => table.status === 'active')
+      .map(table => table.id);
     
-    const selectedTable = tables.find(t => t.id === Number(tableNumber));
-    if (!selectedTable) return [];
+    setActiveTables(activeTableIds);
     
-    return selectedTable.seats.filter(seat => 
-      seat.status === 'active' && !seat.userId
-    );
+    // Set a default table if one exists
+    if (activeTableIds.length > 0) {
+      setTableNumber(activeTableIds[0].toString());
+    }
+    
+    // Update available seats whenever active tables change
+    const refreshAvailableSeats = () => {
+      if (tableNumber) {
+        const selectedTable = tables.find(t => t.id === parseInt(tableNumber));
+        const seats = selectedTable?.seats
+          .filter(seat => seat.status === 'active' && !seat.userId)
+          .map(seat => seat.code) || [];
+        
+        setAvailableSeats(seats);
+        
+        // Clear seat selection if the currently selected seat is no longer available
+        if (seatCode && !seats.includes(seatCode)) {
+          setSeatCode('');
+        }
+        
+        // If seats are available and none is selected, select the first one
+        if (seats.length > 0 && !seatCode) {
+          setSeatCode(seats[0]);
+        }
+      }
+    };
+    
+    refreshAvailableSeats();
+    
+    // Set up interval to refresh available seats
+    const interval = setInterval(refreshAvailableSeats, 2000);
+    
+    return () => clearInterval(interval);
+  }, [tableNumber, seatCode]);
+
+  // Update available seats when table selection changes
+  const handleTableChange = (value: string) => {
+    setTableNumber(value);
+    setSeatCode('');
   };
-  
-  const availableSeats = getAvailableSeats();
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !tableNumber || !seatCode) return;
+    setError(null);
     
-    setIsSubmitting(true);
+    if (!name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    
+    if (!tableNumber) {
+      setError('Please select a table');
+      return;
+    }
+    
+    if (!seatCode) {
+      setError('Please select a seat');
+      return;
+    }
+    
+    setLoading(true);
+    
     try {
-      await loginGuest(name, Number(tableNumber), seatCode);
+      await loginAsGuest(name, parseInt(tableNumber), seatCode);
+      toast({
+        title: "Login Successful",
+        description: `Welcome to Table ${tableNumber}, Seat ${seatCode}!`,
+      });
     } catch (error) {
-      // Error is handled in the AuthContext
-    } finally {
-      setIsSubmitting(false);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Failed to log in. Please try again.');
+      }
+      setLoading(false);
     }
   };
-  
+
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-muted/30">
-      <Card className="w-full max-w-md shadow-lg">
+    <form onSubmit={handleSubmit}>
+      <Card className="w-full max-w-md mx-auto">
         <CardHeader>
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              className="mr-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <CardTitle>Join as Guest</CardTitle>
-              <CardDescription>Enter your details to join a table</CardDescription>
-            </div>
-          </div>
+          <CardTitle>Guest Login</CardTitle>
+          <CardDescription>
+            Enter your details to join a table
+          </CardDescription>
         </CardHeader>
         
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Your Name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="table-number" className="text-sm font-medium">
-                Table Number
-              </label>
-              <Select
-                value={tableNumber}
-                onValueChange={(value) => {
-                  setTableNumber(value);
-                  setSeatCode(''); // Reset seat selection
-                }}
-              >
-                <SelectTrigger id="table-number">
-                  <SelectValue placeholder="Select table" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tables.length === 0 ? (
-                    <SelectItem value="no-tables" disabled>No active tables available</SelectItem>
-                  ) : (
-                    tables.map((table) => (
-                      <SelectItem key={table.id} value={table.id.toString()}>
-                        Table {table.id}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="seat-code" className="text-sm font-medium">
-                Seat
-              </label>
-              <Select
-                value={seatCode}
-                onValueChange={setSeatCode}
-                disabled={!tableNumber || availableSeats.length === 0}
-              >
-                <SelectTrigger id="seat-code">
-                  <SelectValue placeholder="Select seat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {!tableNumber ? (
-                    <SelectItem value="select-table-first" disabled>Select a table first</SelectItem>
-                  ) : availableSeats.length === 0 ? (
-                    <SelectItem value="no-seats" disabled>No available seats</SelectItem>
-                  ) : (
-                    availableSeats.map((seat) => (
-                      <SelectItem key={seat.code} value={seat.code}>
-                        Seat {seat.code}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Your Name</Label>
+            <Input
+              id="name"
+              placeholder="Enter your full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
           
-          <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isSubmitting || !name || !tableNumber || !seatCode}
-            >
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                  Joining...
-                </>
-              ) : (
-                'Join Table'
-              )}
-            </Button>
-          </CardFooter>
-        </form>
+          <div className="space-y-2">
+            <Label htmlFor="table">Table Number</Label>
+            <Select value={tableNumber} onValueChange={handleTableChange}>
+              <SelectTrigger id="table">
+                <SelectValue placeholder="Select a table" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeTables.length > 0 ? (
+                  activeTables.map((id) => (
+                    <SelectItem key={id} value={id.toString()}>
+                      Table {id}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No active tables available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="seat">Seat</Label>
+            <Select value={seatCode} onValueChange={setSeatCode} disabled={!tableNumber}>
+              <SelectTrigger id="seat">
+                <SelectValue placeholder="Select a seat" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSeats.length > 0 ? (
+                  availableSeats.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      Seat {code}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No available seats
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {error && (
+            <div className="text-sm font-medium text-destructive">
+              {error}
+            </div>
+          )}
+        </CardContent>
+        
+        <CardFooter>
+          <Button type="submit" className="w-full" disabled={loading || !name || !tableNumber || !seatCode}>
+            {loading ? 'Joining...' : 'Join Table'}
+          </Button>
+        </CardFooter>
       </Card>
-    </div>
+    </form>
   );
 };
 

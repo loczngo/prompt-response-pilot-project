@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageSquare } from 'lucide-react';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 interface TableControlsSectionProps {
   selectedTable: Table;
@@ -20,7 +21,8 @@ export const TableControlsSection = ({
   onPromptSelect,
   onSendPrompt,
 }: TableControlsSectionProps) => {
-  const [activePrompts, setActivePrompts] = useState<ReturnType<typeof getPrompts>>([]);
+  // Use shared state for active prompts to sync across tabs
+  const [activePrompts, setActivePrompts] = useSharedState<ReturnType<typeof getPrompts>>('activePrompts', []);
   const [currentPromptText, setCurrentPromptText] = useState<string | undefined>('');
   
   // Periodically refresh prompts and current prompt display
@@ -41,12 +43,12 @@ export const TableControlsSection = ({
       }
     };
     
-    // Update immediately and then every 2 seconds
+    // Update immediately and then every 1 second for more responsive updates
     updatePrompts();
-    const interval = setInterval(updatePrompts, 2000);
+    const interval = setInterval(updatePrompts, 1000);
     
     return () => clearInterval(interval);
-  }, [selectedTable]);
+  }, [selectedTable, setActivePrompts]);
 
   return (
     <Card className="lg:col-span-1">

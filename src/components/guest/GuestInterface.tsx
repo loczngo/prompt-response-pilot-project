@@ -13,6 +13,7 @@ import {
 } from '@/lib/mockDb';
 import { BellRing } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
@@ -20,15 +21,16 @@ const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   
+  // Use shared state for prompt, table, and announcement data to sync across tabs
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
-  const [currentPromptId, setCurrentPromptId] = useState<string | null>(null);
+  const [currentPromptId, setCurrentPromptId] = useSharedState<string | null>('currentPromptId', null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
   const [hasResponded, setHasResponded] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementTimerId, setAnnouncementTimerId] = useState<number | null>(null);
   // Track the last announcement timestamp to prevent repeating the same announcement
-  const [lastAnnouncementTimestamp, setLastAnnouncementTimestamp] = useState<string | null>(null);
+  const [lastAnnouncementTimestamp, setLastAnnouncementTimestamp] = useSharedState<string | null>('lastAnnouncementTimestamp', null);
   
   // Make sure we have necessary user info
   if (!user || !user.tableNumber || !user.seatCode) {
@@ -79,7 +81,7 @@ const GuestInterface = () => {
         setAnnouncementTimerId(Number(timerId));
       }
     }
-  }, [user.tableNumber, announcementTimerId, lastAnnouncementTimestamp]);
+  }, [user.tableNumber, announcementTimerId, lastAnnouncementTimestamp, setLastAnnouncementTimestamp]);
   
   // Check for prompts and handle responses
   const checkForPrompt = useCallback(() => {
@@ -125,7 +127,7 @@ const GuestInterface = () => {
     
     // Check for announcements separately
     handleAnnouncements();
-  }, [user, handleAnnouncements, currentPromptId]);
+  }, [user, handleAnnouncements, currentPromptId, setCurrentPromptId]);
   
   useEffect(() => {
     // Check immediately and then every 1 second for more responsive updates

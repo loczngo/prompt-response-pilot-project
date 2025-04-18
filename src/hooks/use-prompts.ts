@@ -1,26 +1,31 @@
-
 import { useState, useEffect } from 'react';
 import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role, User, getTable } from '@/lib/mockDb';
 import { useToast } from '@/hooks/use-toast';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 export const usePrompts = (userRole?: Role, userTableNumber?: number) => {
-  const [prompts, setPrompts] = useState<Prompt[]>(getPrompts());
+  // Use shared state for prompts to sync across tabs
+  const [prompts, setPrompts] = useSharedState<Prompt[]>('prompts', getPrompts());
   const { toast } = useToast();
 
   // Set up polling for real-time updates
   useEffect(() => {
     const refreshData = () => {
-      setPrompts(getPrompts());
+      // Get fresh data
+      const freshPrompts = getPrompts();
+      // Update shared state
+      setPrompts(freshPrompts);
     };
     
-    // Check for updates every 2 seconds
-    const interval = setInterval(refreshData, 2000);
+    // Check for updates more frequently (every 1 second) for more responsive updates
+    const interval = setInterval(refreshData, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [setPrompts]);
 
   const refreshPrompts = () => {
-    setPrompts(getPrompts());
+    const freshPrompts = getPrompts();
+    setPrompts(freshPrompts);
   };
 
   const handleAddPrompt = (promptData: {

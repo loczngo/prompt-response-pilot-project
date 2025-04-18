@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, getTable, getTables, updateTable, updateTableSeat } from '@/lib/mockDb';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 export const useTableManagement = (userTableNumber?: number) => {
-  const [tables, setTables] = useState<Table[]>(getTables());
+  // Use shared state for tables to sync across tabs
+  const [tables, setTables] = useSharedState<Table[]>('tables', getTables());
   const [tableNumber, setTableNumber] = useState<string>('');
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const { toast } = useToast();
@@ -20,8 +22,30 @@ export const useTableManagement = (userTableNumber?: number) => {
     }
   }, [userTableNumber]);
 
+  // Set up polling for real-time updates
+  useEffect(() => {
+    const refreshData = () => {
+      const freshTables = getTables();
+      setTables(freshTables);
+      
+      // Also update selected table if we have one
+      if (selectedTable) {
+        const updatedTable = getTable(selectedTable.id);
+        if (updatedTable) {
+          setSelectedTable(updatedTable);
+        }
+      }
+    };
+    
+    // Check for updates every 1 second for more responsive updates
+    const interval = setInterval(refreshData, 1000);
+    
+    return () => clearInterval(interval);
+  }, [selectedTable, setTables]);
+
   const refreshTables = () => {
-    setTables(getTables());
+    const freshTables = getTables();
+    setTables(freshTables);
     if (selectedTable) {
       setSelectedTable(getTable(selectedTable.id));
     }
