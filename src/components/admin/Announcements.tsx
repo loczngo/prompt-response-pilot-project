@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,19 @@ const Announcements = () => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const tables = getTables();
+  
+  // Periodically refresh announcements
+  useEffect(() => {
+    const refreshData = () => {
+      setAnnouncements(getAnnouncements());
+    };
+    
+    // Refresh immediately and then every 5 seconds
+    refreshData();
+    const interval = setInterval(refreshData, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (

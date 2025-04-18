@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -26,90 +26,119 @@ const GuestInterface = () => {
   const [hasResponded, setHasResponded] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [announcementTimerId, setAnnouncementTimerId] = useState<number | null>(null);
   
   // Make sure we have necessary user info
   if (!user || !user.tableNumber || !user.seatCode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <h2 className="text-xl font-semibold mb-2">Invalid Session</h2>
-            <p className="text-muted-foreground mb-4">
-              Your session is invalid or has expired.
-            </p>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              Return to Login
-            </button>
-          </CardContent>
-        </Card>
+        <CardContent className="p-6 text-center">
+          <h2 className="text-xl font-semibold mb-2">Invalid Session</h2>
+          <p className="text-muted-foreground mb-4">
+            Your session is invalid or has expired.
+          </p>
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Return to Login
+          </button>
+        </CardContent>
       </div>
     );
   }
   
-  useEffect(() => {
-    const checkForPrompt = () => {
-      const table = getTable(user.tableNumber!);
-      if (!table) return;
+  // Handle announcements with useCallback to prevent memory leaks
+  const handleAnnouncements = useCallback(() => {
+    if (!user.tableNumber) return;
+    
+    const announcements = getAnnouncementsForTable(user.tableNumber);
+    if (announcements.length > 0) {
+      const latest = announcements.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )[0];
       
-      const prompt = table.currentPromptId 
-        ? getPrompts().find(p => p.id === table.currentPromptId) 
-        : null;
+      setLastAnnouncement(latest.text);
+      setShowAnnouncement(true);
       
-      if (prompt && prompt.status === 'active') {
-        setCurrentPrompt(prompt.text);
-        setCurrentPromptId(prompt.id);
-        
-        // Check if user has already responded to this prompt
-        const existingResponse = getResponses().find(r => 
-          r.promptId === prompt.id && 
-          r.userId === user.id &&
-          r.tableNumber === user.tableNumber &&
-          r.seatCode === user.seatCode
-        );
-        
-        if (existingResponse) {
-          setSelectedResponse(existingResponse.answer as ResponseOption);
-          setHasResponded(true);
-        } else {
-          setSelectedResponse(null);
-          setHasResponded(false);
-        }
+      // Clear any existing timer
+      if (announcementTimerId !== null) {
+        clearTimeout(announcementTimerId);
+      }
+      
+      // Hide announcement after 10 seconds
+      const timerId = window.setTimeout(() => {
+        setShowAnnouncement(false);
+      }, 10000);
+      
+      setAnnouncementTimerId(timerId);
+    }
+  }, [user.tableNumber, announcementTimerId]);
+  
+  // Check for prompts and handle responses
+  const checkForPrompt = useCallback(() => {
+    if (!user || !user.tableNumber) return;
+    
+    const table = getTable(user.tableNumber);
+    if (!table) return;
+    
+    const prompt = table.currentPromptId 
+      ? getPrompts().find(p => p.id === table.currentPromptId) 
+      : null;
+    
+    if (prompt && prompt.status === 'active') {
+      setCurrentPrompt(prompt.text);
+      setCurrentPromptId(prompt.id);
+      
+      // Check if user has already responded to this prompt
+      const existingResponse = getResponses().find(r => 
+        r.promptId === prompt.id && 
+        r.userId === user.id &&
+        r.tableNumber === user.tableNumber &&
+        r.seatCode === user.seatCode
+      );
+      
+      if (existingResponse) {
+        setSelectedResponse(existingResponse.answer as ResponseOption);
+        // Only set hasResponded for YES/NO responses, SERVICE can be pressed multiple times
+        setHasResponded(existingResponse.answer !== 'SERVICE');
       } else {
-        setCurrentPrompt(null);
-        setCurrentPromptId(null);
         setSelectedResponse(null);
         setHasResponded(false);
       }
-      
-      // Check for announcements
-      const announcements = getAnnouncementsForTable(user.tableNumber!);
-      if (announcements.length > 0) {
-        const latest = announcements.sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        )[0];
-        
-        setLastAnnouncement(latest.text);
-        setShowAnnouncement(true);
-        
-        // Hide announcement after 10 seconds
-        setTimeout(() => {
-          setShowAnnouncement(false);
-        }, 10000);
-      }
-    };
+    } else {
+      setCurrentPrompt(null);
+      setCurrentPromptId(null);
+      setSelectedResponse(null);
+      setHasResponded(false);
+    }
     
+    // Check for announcements separately
+    handleAnnouncements();
+  }, [user, handleAnnouncements]);
+  
+  useEffect(() => {
     // Check immediately and then every 3 seconds
     checkForPrompt();
     const interval = setInterval(checkForPrompt, 3000);
     
-    return () => clearInterval(interval);
-  }, [user]);
+    return () => {
+      clearInterval(interval);
+      // Clean up any announcement timer when unmounting
+      if (announcementTimerId !== null) {
+        clearTimeout(announcementTimerId);
+      }
+    };
+  }, [checkForPrompt, announcementTimerId]);
   
   const handleResponse = (response: ResponseOption) => {
     if (!currentPromptId || !user.tableNumber || !user.seatCode) return;
+    
+    // For SERVICE type, allow multiple presses regardless of previous responses
+    // For YES/NO, only allow if the user hasn't responded yet with YES/NO (but SERVICE is still allowed)
+    if (response !== 'SERVICE' && hasResponded) {
+      return;
+    }
     
     // Create the response
     const newResponse: Omit<Response, 'id' | 'timestamp'> = {
@@ -122,7 +151,11 @@ const GuestInterface = () => {
     
     createResponse(newResponse);
     setSelectedResponse(response);
-    setHasResponded(true);
+    
+    // Only set hasResponded to true for YES/NO responses
+    if (response !== 'SERVICE') {
+      setHasResponded(true);
+    }
     
     // Show confirmation
     toast({
@@ -228,13 +261,12 @@ const GuestInterface = () => {
                 <button
                   className={`response-button service ${selectedResponse === 'SERVICE' ? 'selected' : ''}`}
                   onClick={() => handleResponse('SERVICE')}
-                  disabled={hasResponded && selectedResponse !== 'SERVICE'}
                 >
                   SERVICE
                 </button>
               </div>
               
-              {hasResponded && (
+              {selectedResponse && (
                 <p className="text-center mt-6 text-sm text-muted-foreground">
                   {selectedResponse === 'SERVICE' 
                     ? 'Service request sent!' 
