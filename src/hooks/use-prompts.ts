@@ -1,11 +1,23 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role, User, getTable } from '@/lib/mockDb';
 import { useToast } from '@/hooks/use-toast';
 
 export const usePrompts = (userRole?: Role, userTableNumber?: number) => {
   const [prompts, setPrompts] = useState<Prompt[]>(getPrompts());
   const { toast } = useToast();
+
+  // Set up polling for real-time updates
+  useEffect(() => {
+    const refreshData = () => {
+      setPrompts(getPrompts());
+    };
+    
+    // Check for updates every 2 seconds
+    const interval = setInterval(refreshData, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const refreshPrompts = () => {
     setPrompts(getPrompts());

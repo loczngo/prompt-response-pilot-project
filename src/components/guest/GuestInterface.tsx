@@ -27,6 +27,8 @@ const GuestInterface = () => {
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementTimerId, setAnnouncementTimerId] = useState<number | null>(null);
+  // Track the last announcement timestamp to prevent repeating the same announcement
+  const [lastAnnouncementTimestamp, setLastAnnouncementTimestamp] = useState<string | null>(null);
   
   // Make sure we have necessary user info
   if (!user || !user.tableNumber || !user.seatCode) {
@@ -58,22 +60,26 @@ const GuestInterface = () => {
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       )[0];
       
-      setLastAnnouncement(latest.text);
-      setShowAnnouncement(true);
-      
-      // Clear any existing timer
-      if (announcementTimerId !== null) {
-        clearTimeout(announcementTimerId);
+      // Only update if this is a new announcement (based on timestamp)
+      if (!lastAnnouncementTimestamp || latest.timestamp !== lastAnnouncementTimestamp) {
+        setLastAnnouncement(latest.text);
+        setLastAnnouncementTimestamp(latest.timestamp);
+        setShowAnnouncement(true);
+        
+        // Clear any existing timer
+        if (announcementTimerId !== null) {
+          clearTimeout(announcementTimerId);
+        }
+        
+        // Hide announcement after 10 seconds
+        const timerId = window.setTimeout(() => {
+          setShowAnnouncement(false);
+        }, 10000);
+        
+        setAnnouncementTimerId(Number(timerId));
       }
-      
-      // Hide announcement after 10 seconds
-      const timerId = window.setTimeout(() => {
-        setShowAnnouncement(false);
-      }, 10000);
-      
-      setAnnouncementTimerId(timerId);
     }
-  }, [user.tableNumber, announcementTimerId]);
+  }, [user.tableNumber, announcementTimerId, lastAnnouncementTimestamp]);
   
   // Check for prompts and handle responses
   const checkForPrompt = useCallback(() => {
@@ -87,26 +93,30 @@ const GuestInterface = () => {
       : null;
     
     if (prompt && prompt.status === 'active') {
-      setCurrentPrompt(prompt.text);
-      setCurrentPromptId(prompt.id);
-      
-      // Check if user has already responded to this prompt
-      const existingResponse = getResponses().find(r => 
-        r.promptId === prompt.id && 
-        r.userId === user.id &&
-        r.tableNumber === user.tableNumber &&
-        r.seatCode === user.seatCode
-      );
-      
-      if (existingResponse) {
-        setSelectedResponse(existingResponse.answer as ResponseOption);
-        // Only set hasResponded for YES/NO responses, SERVICE can be pressed multiple times
-        setHasResponded(existingResponse.answer !== 'SERVICE');
-      } else {
+      // If prompt ID changed, reset responses
+      if (currentPromptId !== prompt.id) {
+        setCurrentPrompt(prompt.text);
+        setCurrentPromptId(prompt.id);
         setSelectedResponse(null);
         setHasResponded(false);
+      } else if (currentPromptId === prompt.id) {
+        // Same prompt as before, check for responses
+        // Check if user has already responded to this prompt
+        const existingResponse = getResponses().find(r => 
+          r.promptId === prompt.id && 
+          r.userId === user.id &&
+          r.tableNumber === user.tableNumber &&
+          r.seatCode === user.seatCode
+        );
+        
+        if (existingResponse) {
+          setSelectedResponse(existingResponse.answer as ResponseOption);
+          // Only set hasResponded for YES/NO responses, SERVICE can be pressed multiple times
+          setHasResponded(existingResponse.answer === 'YES' || existingResponse.answer === 'NO');
+        }
       }
-    } else {
+    } else if (!prompt && currentPromptId !== null) {
+      // Prompt was removed
       setCurrentPrompt(null);
       setCurrentPromptId(null);
       setSelectedResponse(null);
@@ -115,12 +125,12 @@ const GuestInterface = () => {
     
     // Check for announcements separately
     handleAnnouncements();
-  }, [user, handleAnnouncements]);
+  }, [user, handleAnnouncements, currentPromptId]);
   
   useEffect(() => {
-    // Check immediately and then every 3 seconds
+    // Check immediately and then every 1 second for more responsive updates
     checkForPrompt();
-    const interval = setInterval(checkForPrompt, 3000);
+    const interval = setInterval(checkForPrompt, 1000);
     
     return () => {
       clearInterval(interval);
@@ -135,8 +145,8 @@ const GuestInterface = () => {
     if (!currentPromptId || !user.tableNumber || !user.seatCode) return;
     
     // For SERVICE type, allow multiple presses regardless of previous responses
-    // For YES/NO, only allow if the user hasn't responded yet with YES/NO (but SERVICE is still allowed)
-    if (response !== 'SERVICE' && hasResponded) {
+    // For YES/NO, only allow if the user hasn't already responded with YES or NO
+    if ((response === 'YES' || response === 'NO') && hasResponded) {
       return;
     }
     
@@ -153,7 +163,7 @@ const GuestInterface = () => {
     setSelectedResponse(response);
     
     // Only set hasResponded to true for YES/NO responses
-    if (response !== 'SERVICE') {
+    if (response === 'YES' || response === 'NO') {
       setHasResponded(true);
     }
     
@@ -261,6 +271,7 @@ const GuestInterface = () => {
                 <button
                   className={`response-button service ${selectedResponse === 'SERVICE' ? 'selected' : ''}`}
                   onClick={() => handleResponse('SERVICE')}
+                  disabled={!currentPrompt}
                 >
                   SERVICE
                 </button>

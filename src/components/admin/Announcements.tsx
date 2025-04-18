@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 
 const Announcements = () => {
-  const [announcements, setAnnouncements] = useState<Announcement[]>(getAnnouncements());
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false);
   
   const [announcementText, setAnnouncementText] = useState('');
@@ -24,15 +24,15 @@ const Announcements = () => {
   const { user: currentUser } = useAuth();
   const tables = getTables();
   
-  // Periodically refresh announcements
+  // Load announcements initially and set up refresh interval
   useEffect(() => {
     const refreshData = () => {
       setAnnouncements(getAnnouncements());
     };
     
-    // Refresh immediately and then every 5 seconds
+    // Refresh immediately and then every 2 seconds for more responsive updates
     refreshData();
-    const interval = setInterval(refreshData, 5000);
+    const interval = setInterval(refreshData, 2000);
     
     return () => clearInterval(interval);
   }, []);
@@ -84,10 +84,19 @@ const Announcements = () => {
   const handleCreateAnnouncement = () => {
     if (!announcementText) return;
     
-    const newAnnouncement = createAnnouncement({
-      text: announcementText,
-      targetTables: selectAllTables ? null : selectedTables
-    });
+    // For table admins, automatically target their assigned table
+    if (currentUser?.role === 'table-admin' && currentUser.tableNumber) {
+      createAnnouncement({
+        text: announcementText,
+        targetTables: [currentUser.tableNumber]
+      });
+    } else {
+      // For super admins, use the selected tables
+      createAnnouncement({
+        text: announcementText,
+        targetTables: selectAllTables ? null : selectedTables
+      });
+    }
     
     refreshAnnouncements();
     setShowAddAnnouncement(false);
