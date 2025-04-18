@@ -300,6 +300,21 @@ const Tables = () => {
     });
   };
 
+  const handleTableStatusToggle = (tableId: number) => {
+    const table = getTable(tableId);
+    if (!table) return;
+    
+    const newStatus = table.status === 'active' ? 'inactive' : 'active';
+    
+    updateTable(tableId, { status: newStatus });
+    refreshTables();
+    
+    toast({
+      title: `Table ${tableId} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
+      description: `Table ${tableId} is now ${newStatus}.`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -338,6 +353,15 @@ const Tables = () => {
                 </SelectContent>
               </Select>
               <Button onClick={handleTableSelect}>View Table</Button>
+              {selectedTable && (
+                <Button 
+                  variant="outline"
+                  onClick={() => handleTableStatusToggle(selectedTable.id)}
+                  className={selectedTable.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
+                >
+                  {selectedTable.status === 'active' ? 'Disable' : 'Enable'} Table
+                </Button>
+              )}
             </div>
           </div>
         </div>
