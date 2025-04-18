@@ -166,7 +166,7 @@ const Prompts = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Tables</SelectItem>
-                      {(user && user.role === 'super-admin' 
+                      {(user?.role === 'super-admin'
                         ? tables 
                         : tables.filter(t => t.id === user?.tableNumber))
                         .map((table) => (
