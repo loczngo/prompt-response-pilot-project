@@ -38,10 +38,12 @@ export function useSharedState<T>(key: string, initialValue: T): [T, (value: T) 
     // Also update local state
     setState(value);
     // Dispatch a custom event to notify the current tab
-    window.dispatchEvent(new StorageEvent('storage', {
+    // Create a proper StorageEvent for current tab
+    const event = new StorageEvent('storage', {
       key: `shared_${key}`,
       newValue: JSON.stringify(value)
-    }));
+    });
+    window.dispatchEvent(event);
   };
 
   return [state, setSharedState];

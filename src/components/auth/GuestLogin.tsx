@@ -8,37 +8,49 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getTables } from '@/lib/mockDb';
+import { useSharedState } from '@/hooks/use-shared-state';
 
-const GuestLogin = () => {
+const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [name, setName] = useState('');
   const [tableNumber, setTableNumber] = useState('');
   const [seatCode, setSeatCode] = useState('');
   const [availableSeats, setAvailableSeats] = useState<string[]>([]);
-  const [activeTables, setActiveTables] = useState<number[]>([]);
+  const [activeTables, setActiveTables] = useSharedState<number[]>('activeTables', []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { loginAsGuest } = useAuth();
+  const { login } = useAuth();
   const { toast } = useToast();
 
-  // Load active tables when component mounts
+  // Load active tables when component mounts and periodically refresh
   useEffect(() => {
     // Get all active tables
-    const tables = getTables();
-    const activeTableIds = tables
-      .filter(table => table.status === 'active')
-      .map(table => table.id);
+    const refreshActiveTables = () => {
+      const tables = getTables();
+      const activeTableIds = tables
+        .filter(table => table.status === 'active')
+        .map(table => table.id);
+      
+      setActiveTables(activeTableIds);
+      
+      // Set a default table if one exists and none is selected
+      if (activeTableIds.length > 0 && !tableNumber) {
+        setTableNumber(activeTableIds[0].toString());
+      }
+    };
     
-    setActiveTables(activeTableIds);
+    // Refresh immediately and then every 1 second for more responsive updates
+    refreshActiveTables();
+    const interval = setInterval(refreshActiveTables, 1000);
     
-    // Set a default table if one exists
-    if (activeTableIds.length > 0) {
-      setTableNumber(activeTableIds[0].toString());
-    }
-    
-    // Update available seats whenever active tables change
-    const refreshAvailableSeats = () => {
-      if (tableNumber) {
+    return () => clearInterval(interval);
+  }, [tableNumber, setActiveTables]);
+
+  // Update available seats when table selection changes
+  useEffect(() => {
+    if (tableNumber) {
+      const updateAvailableSeats = () => {
+        const tables = getTables();
         const selectedTable = tables.find(t => t.id === parseInt(tableNumber));
         const seats = selectedTable?.seats
           .filter(seat => seat.status === 'active' && !seat.userId)
@@ -55,15 +67,15 @@ const GuestLogin = () => {
         if (seats.length > 0 && !seatCode) {
           setSeatCode(seats[0]);
         }
-      }
-    };
-    
-    refreshAvailableSeats();
-    
-    // Set up interval to refresh available seats
-    const interval = setInterval(refreshAvailableSeats, 2000);
-    
-    return () => clearInterval(interval);
+      };
+      
+      updateAvailableSeats();
+      
+      // Set up interval to refresh available seats
+      const interval = setInterval(updateAvailableSeats, 1000);
+      
+      return () => clearInterval(interval);
+    }
   }, [tableNumber, seatCode]);
 
   // Update available seats when table selection changes
@@ -94,7 +106,20 @@ const GuestLogin = () => {
     setLoading(true);
     
     try {
-      await loginAsGuest(name, parseInt(tableNumber), seatCode);
+      // Split name into first and last name (use whole name as first name if no space)
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+      
+      // Use the login method with role: 'guest'
+      await login({
+        firstName,
+        lastName,
+        role: 'guest',
+        tableNumber: parseInt(tableNumber),
+        seatCode
+      });
+      
       toast({
         title: "Login Successful",
         description: `Welcome to Table ${tableNumber}, Seat ${seatCode}!`,
@@ -182,8 +207,20 @@ const GuestLogin = () => {
           )}
         </CardContent>
         
-        <CardFooter>
-          <Button type="submit" className="w-full" disabled={loading || !name || !tableNumber || !seatCode}>
+        <CardFooter className="flex flex-col gap-4 sm:flex-row">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full" 
+            onClick={onBack}
+          >
+            Back
+          </Button>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loading || !name || !tableNumber || !seatCode}
+          >
             {loading ? 'Joining...' : 'Join Table'}
           </Button>
         </CardFooter>

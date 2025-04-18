@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role, User, getTable } from '@/lib/mockDb';
 import { useToast } from '@/hooks/use-toast';
