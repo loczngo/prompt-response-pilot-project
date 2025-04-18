@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 interface PromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: { text: string; targetTable: string | null; isActive: boolean }) => void;
+  onSave: (data: { text: string; targetTable: string | null; isActive: boolean }) => void | boolean;
   title: string;
   description: string;
   prompt?: Prompt;
@@ -42,16 +42,15 @@ export const PromptDialog = ({
   }, [prompt]);
 
   const handleSave = () => {
-    const success = onSave({
+    onSave({
       text: promptText,
       targetTable,
       isActive
     });
     
-    if (success) {
-      onOpenChange(false);
-      resetForm();
-    }
+    // Fixed TypeScript error: Don't test return value for truthiness
+    onOpenChange(false);
+    resetForm();
   };
 
   const resetForm = () => {

@@ -17,7 +17,8 @@ const Prompts = () => {
   const { user } = useAuth();
   const { prompts, handleAddPrompt, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(user?.role);
   
-  if (user?.role !== 'super-admin') {
+  // Fixed TypeScript error: Use strict equality comparison with specific role type
+  if (user?.role !== 'super-admin' && user?.role !== 'table-admin') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md">
