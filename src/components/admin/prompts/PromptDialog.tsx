@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Prompt, getTables } from '@/lib/mockDb';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,6 +15,7 @@ interface PromptDialogProps {
   description: string;
   prompt?: Prompt;
   isTableAdmin?: boolean;
+  tableNumber?: number;
 }
 
 export const PromptDialog = ({
@@ -25,7 +25,8 @@ export const PromptDialog = ({
   title,
   description,
   prompt,
-  isTableAdmin
+  isTableAdmin,
+  tableNumber
 }: PromptDialogProps) => {
   const [promptText, setPromptText] = useState('');
   const [targetTable, setTargetTable] = useState<string | null>(null);
@@ -38,8 +39,10 @@ export const PromptDialog = ({
       setPromptText(prompt.text);
       setTargetTable(prompt.targetTable !== null ? prompt.targetTable.toString() : null);
       setIsActive(prompt.status === 'active');
+    } else if (isTableAdmin && tableNumber) {
+      setTargetTable(tableNumber.toString());
     }
-  }, [prompt]);
+  }, [prompt, isTableAdmin, tableNumber]);
 
   const handleSave = () => {
     onSave({
@@ -55,7 +58,8 @@ export const PromptDialog = ({
 
   const resetForm = () => {
     setPromptText('');
-    setTargetTable(null);
+    // Reset target table but keep table admin's assigned table if applicable
+    setTargetTable(isTableAdmin && tableNumber ? tableNumber.toString() : null);
     setIsActive(true);
   };
 
@@ -97,9 +101,9 @@ export const PromptDialog = ({
                 ))}
               </SelectContent>
             </Select>
-            {isTableAdmin && (
+            {isTableAdmin && tableNumber && (
               <p className="text-xs text-muted-foreground">
-                As a Table Admin, prompts will be automatically targeted to your assigned table.
+                As a Table Admin, your prompts will be automatically targeted to Table {tableNumber}.
               </p>
             )}
           </div>

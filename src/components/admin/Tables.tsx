@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ const Tables = () => {
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  
   const {
     tables,
     tableNumber,
@@ -61,7 +62,7 @@ const Tables = () => {
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle
-  } = useTableManagement();
+  } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber : undefined);
 
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
@@ -79,12 +80,8 @@ const Tables = () => {
     );
   }
 
-  useEffect(() => {
-    if (currentUser?.role === 'table-admin' && currentUser?.tableNumber) {
-      setTableNumber(currentUser.tableNumber.toString());
-      handleTableSelect();
-    }
-  }, [currentUser]);
+  const showTableSelector = currentUser?.role === 'super-admin';
+  const isTableAdminWithoutTable = currentUser?.role === 'table-admin' && !currentUser?.tableNumber;
 
   const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
@@ -185,7 +182,18 @@ const Tables = () => {
         </div>
       </div>
 
-      {currentUser?.role === 'super-admin' && (
+      {isTableAdminWithoutTable && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-amber-500 font-medium mb-2">No Table Assigned</p>
+            <p className="text-muted-foreground">
+              You don't have a table assigned to your account. Please contact a Super Admin to assign you a table.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {showTableSelector && (
         <TableSelector
           tables={tables}
           tableNumber={tableNumber}
@@ -303,16 +311,18 @@ const Tables = () => {
           </TabsContent>
         </Tabs>
       ) : (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">
-              {currentUser?.role === 'super-admin' 
-                ? 'Select a table to view and manage' 
-                : 'No table assigned to you'
-              }
-            </p>
-          </CardContent>
-        </Card>
+        !isTableAdminWithoutTable && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">
+                {currentUser?.role === 'super-admin' 
+                  ? 'Select a table to view and manage' 
+                  : 'No table assigned to you'
+                }
+              </p>
+            </CardContent>
+          </Card>
+        )
       )}
 
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
@@ -367,7 +377,6 @@ const Tables = () => {
                       variant="outline"
                       className="p-4 h-auto"
                       onClick={() => {
-                        // Handle seat selection for player-dealer role
                         toast({
                           title: "Player-Dealer Query Sent",
                           description: `Sent query to seat ${seat.code}.`

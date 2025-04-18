@@ -15,7 +15,10 @@ const Prompts = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   
   const { user } = useAuth();
-  const { prompts, handleAddPrompt, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(user?.role);
+  const { prompts, handleAddPrompt, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
+    user?.role, 
+    user?.tableNumber
+  );
   
   // Fixed TypeScript error: Use strict equality comparison with specific role type
   if (user?.role !== 'super-admin' && user?.role !== 'table-admin') {
@@ -26,7 +29,7 @@ const Prompts = () => {
             <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
             <p className="text-muted-foreground">
               You don't have permission to manage prompts.
-              Only Super Admins can access this section.
+              Only Super Admins and Table Admins can access this section.
             </p>
           </CardContent>
         </Card>
@@ -58,6 +61,7 @@ const Prompts = () => {
         description="Create a new prompt to be sent to tables."
         onSave={handleAddPrompt}
         isTableAdmin={user?.role === 'table-admin'}
+        tableNumber={user?.tableNumber}
       />
       
       <PromptDialog
@@ -68,6 +72,7 @@ const Prompts = () => {
         prompt={selectedPrompt ?? undefined}
         onSave={(data) => selectedPrompt && handleUpdatePrompt(selectedPrompt.id, data)}
         isTableAdmin={user?.role === 'table-admin'}
+        tableNumber={user?.tableNumber}
       />
       
       <div className="space-y-4">

@@ -1,13 +1,24 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, getTable, getTables, updateTable, updateTableSeat } from '@/lib/mockDb';
 
-export const useTableManagement = () => {
+export const useTableManagement = (userTableNumber?: number) => {
   const [tables, setTables] = useState<Table[]>(getTables());
-  const [tableNumber, setTableNumber] = useState('');
+  const [tableNumber, setTableNumber] = useState<string>('');
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const { toast } = useToast();
+
+  // Auto-select assigned table if user is a table admin
+  useEffect(() => {
+    if (userTableNumber) {
+      setTableNumber(userTableNumber.toString());
+      const table = getTable(userTableNumber);
+      if (table) {
+        setSelectedTable(table);
+      }
+    }
+  }, [userTableNumber]);
 
   const refreshTables = () => {
     setTables(getTables());

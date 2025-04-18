@@ -1,9 +1,9 @@
 
 import { useState } from 'react';
-import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role } from '@/lib/mockDb';
+import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role, User, getTable } from '@/lib/mockDb';
 import { useToast } from '@/hooks/use-toast';
 
-export const usePrompts = (userRole?: Role) => {
+export const usePrompts = (userRole?: Role, userTableNumber?: number) => {
   const [prompts, setPrompts] = useState<Prompt[]>(getPrompts());
   const { toast } = useToast();
 
@@ -16,11 +16,17 @@ export const usePrompts = (userRole?: Role) => {
     targetTable: string | null;
     isActive: boolean;
   }) => {
-    if (!promptData.text) return;
+    if (!promptData.text) return false;
+    
+    // For table admins, ensure prompts are assigned to their table
+    let targetTable = promptData.targetTable ? Number(promptData.targetTable) : null;
+    if (userRole === 'table-admin' && userTableNumber) {
+      targetTable = userTableNumber;
+    }
     
     createPrompt({
       text: promptData.text,
-      targetTable: promptData.targetTable ? Number(promptData.targetTable) : null,
+      targetTable: targetTable,
       status: promptData.isActive ? 'active' : 'inactive'
     });
     
@@ -42,11 +48,17 @@ export const usePrompts = (userRole?: Role) => {
       isActive: boolean;
     }
   ) => {
-    if (!promptData.text) return;
+    if (!promptData.text) return false;
+    
+    // For table admins, ensure prompts stay assigned to their table
+    let targetTable = promptData.targetTable ? Number(promptData.targetTable) : null;
+    if (userRole === 'table-admin' && userTableNumber) {
+      targetTable = userTableNumber;
+    }
     
     updatePrompt(id, {
       text: promptData.text,
-      targetTable: promptData.targetTable ? Number(promptData.targetTable) : null,
+      targetTable: targetTable,
       status: promptData.isActive ? 'active' : 'inactive'
     });
     
@@ -73,8 +85,9 @@ export const usePrompts = (userRole?: Role) => {
   };
 
   const filteredPrompts = prompts.filter(prompt => {
-    if (userRole === 'table-admin') {
-      return prompt.targetTable === null;
+    // For table admins, only show prompts for their table or global prompts
+    if (userRole === 'table-admin' && userTableNumber) {
+      return prompt.targetTable === null || prompt.targetTable === userTableNumber;
     }
     return true;
   });
