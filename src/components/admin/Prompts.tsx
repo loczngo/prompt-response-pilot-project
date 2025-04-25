@@ -18,11 +18,11 @@ const Prompts = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   
   const { user } = useAuth();
-  const { handleAddPrompt: handleAddPromptLocal, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
+  const { handleAddPromptLocal, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
     user?.role, 
     user?.tableNumber
   );
-  const { prompts: realTimePrompts } = useRealtimeUpdates();
+  const { prompts: realTimePrompts, realtimeStatus } = useRealtimeUpdates();
   const { toast } = useToast();
   
   // Use realTimePrompts instead of getPrompts()
@@ -55,8 +55,9 @@ const Prompts = () => {
     text: string;
     targetTable: string | null;
     isActive: boolean;
-  }) => {
+  }): Promise<void> => {
     try {
+      console.log('Creating new prompt in Supabase:', promptData);
       const { error } = await supabase
         .from('prompts')
         .insert({
@@ -65,14 +66,15 @@ const Prompts = () => {
           status: promptData.isActive ? 'active' : 'inactive'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error creating prompt:', error);
+        throw error;
+      }
 
       toast({
         title: "Prompt Created",
         description: "The prompt has been successfully created.",
       });
-
-      return true; // This return value won't be used by PromptDialog
     } catch (error) {
       console.error('Error creating prompt:', error);
       toast({
@@ -80,12 +82,22 @@ const Prompts = () => {
         description: "Failed to create prompt.",
         variant: "destructive"
       });
-      return false; // This return value won't be used by PromptDialog
+      throw error;
     }
   };
 
   return (
     <div className="space-y-6">
+      {realtimeStatus !== 'connected' && (
+        <div className={`p-2 text-sm rounded-md mb-4 ${
+          realtimeStatus === 'connecting' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {realtimeStatus === 'connecting' 
+            ? "Connecting to realtime updates..." 
+            : "Error connecting to realtime updates. Some features may not work properly."}
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Prompts</h1>
         {user && canManagePrompts(user.role) && (

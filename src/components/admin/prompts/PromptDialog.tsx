@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Prompt, getTables } from '@/lib/mockDb';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 
 interface PromptDialogProps {
   open: boolean;
@@ -31,6 +33,7 @@ export const PromptDialog = ({
   const [promptText, setPromptText] = useState('');
   const [targetTable, setTargetTable] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const { toast } = useToast();
   
   const tables = getTables();
 
@@ -45,14 +48,32 @@ export const PromptDialog = ({
   }, [prompt, isTableAdmin, tableNumber]);
 
   const handleSave = async () => {
-    await onSave({
-      text: promptText,
-      targetTable,
-      isActive
-    });
+    if (!promptText.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Prompt text cannot be empty",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    onOpenChange(false);
-    resetForm();
+    try {
+      await onSave({
+        text: promptText,
+        targetTable,
+        isActive
+      });
+      
+      onOpenChange(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error in handleSave:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem saving the prompt",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {

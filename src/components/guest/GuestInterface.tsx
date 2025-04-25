@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +13,7 @@ type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const { tables, prompts, announcements } = useRealtimeUpdates();
+  const { tables, prompts, announcements, realtimeStatus } = useRealtimeUpdates();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
@@ -21,22 +21,41 @@ const GuestInterface = () => {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
+  useEffect(() => {
+    console.log('GuestInterface - User:', user);
+    console.log('GuestInterface - Prompts data:', prompts);
+    console.log('GuestInterface - Tables data:', tables);
+  }, [user, prompts, tables]);
+
   // Find user's table and any active prompts
   useEffect(() => {
-    if (!user?.tableNumber) return;
+    if (!user?.tableNumber) {
+      console.log('No table number assigned to user');
+      return;
+    }
 
+    console.log(`Looking for table ${user.tableNumber} in tables:`, tables);
     const userTable = tables.find(t => t.id === user.tableNumber);
-    if (!userTable) return;
+    if (!userTable) {
+      console.log(`Table ${user.tableNumber} not found`);
+      return;
+    }
 
+    console.log('Filtering prompts for table:', user.tableNumber);
     const tablePrompts = prompts.filter(p => 
       p.status === 'active' && 
       (p.target_table === null || p.target_table === user.tableNumber)
     );
 
+    console.log('Active prompts for this table:', tablePrompts);
     if (tablePrompts.length > 0) {
       // Get the most recent prompt
       const latestPrompt = tablePrompts[tablePrompts.length - 1];
+      console.log('Setting current prompt to:', latestPrompt);
       setCurrentPrompt(latestPrompt);
+      // Reset response state when a new prompt arrives
+      setSelectedResponse(null);
+      setHasResponded(false);
     } else {
       setCurrentPrompt(null);
       setSelectedResponse(null);
@@ -70,8 +89,9 @@ const GuestInterface = () => {
     if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
 
     try {
+      console.log(`Submitting response ${response} for prompt ${currentPrompt.id}`);
+      
       // Store response directly in Supabase
-      // We'll use a custom table structure that works with our schema
       const { error } = await supabase
         .from('announcements') // Using announcements as a workaround since responses table doesn't exist yet
         .insert({
@@ -79,7 +99,10 @@ const GuestInterface = () => {
           target_table: user.tableNumber
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error submitting response:', error);
+        throw error;
+      }
 
       setSelectedResponse(response);
       if (response === 'YES' || response === 'NO') {
@@ -121,6 +144,32 @@ const GuestInterface = () => {
       </header>
       
       <main className="flex-1 container mx-auto p-6 flex flex-col items-center justify-center">
+        {/* Realtime Status Banner */}
+        {realtimeStatus !== 'connected' && (
+          <div className="w-full max-w-xl mb-6">
+            <Card className={`border-l-4 ${
+              realtimeStatus === 'connecting' ? 'border-l-amber-500' : 'border-l-red-500'
+            }`}>
+              <CardContent className="p-4">
+                <div className="flex items-start">
+                  <div>
+                    <h3 className="font-medium">{
+                      realtimeStatus === 'connecting' 
+                        ? 'Connecting to realtime updates...' 
+                        : 'Error connecting to realtime updates'
+                    }</h3>
+                    <p className="text-sm mt-1">{
+                      realtimeStatus === 'connecting'
+                        ? 'Please wait while we establish a connection.'
+                        : 'Some features may not work properly. Try refreshing the page.'
+                    }</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
         {/* Announcement Banner */}
         {showAnnouncement && lastAnnouncement && (
           <div className="w-full max-w-xl mb-6 animate-fade-in">
@@ -210,6 +259,16 @@ const GuestInterface = () => {
                     : 'Thank you for your response!'
                   }
                 </p>
+              )}
+
+              {/* Debug info - only in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
+                  <p>Debug Info:</p>
+                  <p>Prompt Count: {prompts.length}</p>
+                  <p>Current Prompt: {currentPrompt ? `ID: ${currentPrompt.id}, Text: ${currentPrompt.text}` : 'None'}</p>
+                  <p>Realtime Status: {realtimeStatus}</p>
+                </div>
               )}
             </CardContent>
           </Card>
