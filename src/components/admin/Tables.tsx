@@ -197,7 +197,7 @@ const Tables = () => {
 
       {showTableSelector && (
         <TableSelector
-          tables={tables}
+          tables={realtimeTables}
           tableNumber={tableNumber}
           selectedTable={selectedTable}
           onTableNumberChange={setTableNumber}

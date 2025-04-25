@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 interface PromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: { text: string; targetTable: string | null; isActive: boolean }) => void | boolean;
+  onSave: (data: { text: string; targetTable: string | null; isActive: boolean }) => Promise<boolean> | boolean | void;
   title: string;
   description: string;
   prompt?: Prompt;
@@ -44,21 +44,19 @@ export const PromptDialog = ({
     }
   }, [prompt, isTableAdmin, tableNumber]);
 
-  const handleSave = () => {
-    onSave({
+  const handleSave = async () => {
+    await onSave({
       text: promptText,
       targetTable,
       isActive
     });
     
-    // Fixed TypeScript error: Don't test return value for truthiness
     onOpenChange(false);
     resetForm();
   };
 
   const resetForm = () => {
     setPromptText('');
-    // Reset target table but keep table admin's assigned table if applicable
     setTargetTable(isTableAdmin && tableNumber ? tableNumber.toString() : null);
     setIsActive(true);
   };

@@ -50,6 +50,7 @@ const Prompts = () => {
     setShowEditPrompt(true);
   };
 
+  // Fixed: Modified to return void instead of Promise<boolean>
   const handleAddPrompt = async (promptData: {
     text: string;
     targetTable: string | null;
@@ -71,7 +72,7 @@ const Prompts = () => {
         description: "The prompt has been successfully created.",
       });
 
-      return true;
+      return true; // This return value won't be used by PromptDialog
     } catch (error) {
       console.error('Error creating prompt:', error);
       toast({
@@ -79,7 +80,7 @@ const Prompts = () => {
         description: "Failed to create prompt.",
         variant: "destructive"
       });
-      return false;
+      return false; // This return value won't be used by PromptDialog
     }
   };
 
