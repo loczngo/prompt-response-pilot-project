@@ -1,15 +1,15 @@
-
-import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { TableSelection } from './TableSelection';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
 import { useRealtimeEnabler } from '@/hooks/use-realtime-enabler';
-import { supabase } from '@/integrations/supabase/client';
 import { GuestHeader } from './components/GuestHeader';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuestAnnouncement } from './components/GuestAnnouncement';
 import { PromptResponse } from './components/PromptResponse';
+import { useState, useEffect, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
@@ -17,8 +17,6 @@ const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { tables, prompts, announcements, realtimeStatus, refreshData, lastError } = useRealtimeUpdates();
-  
-  // Enable realtime updates
   const { isEnabled: realtimeEnabled } = useRealtimeEnabler();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
@@ -191,6 +189,11 @@ const GuestInterface = () => {
       clearInterval(intervalTimer);
     };
   }, [refreshData]);
+
+  // If user hasn't selected a table yet, show table selection
+  if (!user?.tableNumber) {
+    return <TableSelection />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
