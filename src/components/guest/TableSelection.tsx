@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft } from 'lucide-react';
 
 export const TableSelection = () => {
   const [tables, setTables] = useState<any[]>([]);
@@ -17,7 +17,6 @@ export const TableSelection = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch active tables
   useEffect(() => {
     const fetchTables = async () => {
       const { data, error } = await supabase
@@ -34,17 +33,15 @@ export const TableSelection = () => {
     };
 
     fetchTables();
-    const interval = setInterval(fetchTables, 5000); // Refresh every 5 seconds
+    const interval = setInterval(fetchTables, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch available seats when table is selected
   useEffect(() => {
     const fetchSeats = async () => {
       if (!selectedTable) return;
 
-      // Convert selectedTable from string to number for the database query
       const tableId = parseInt(selectedTable, 10);
 
       const { data, error } = await supabase
@@ -70,10 +67,8 @@ export const TableSelection = () => {
 
     setLoading(true);
     try {
-      // Convert selectedTable from string to number for the database update
       const tableId = parseInt(selectedTable, 10);
       
-      // Update profile with table and seat
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -84,7 +79,6 @@ export const TableSelection = () => {
 
       if (updateError) throw updateError;
 
-      // Update seat with user id
       const { error: seatError } = await supabase
         .from('seats')
         .update({ user_id: user.id })
@@ -109,64 +103,76 @@ export const TableSelection = () => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Select Your Table</CardTitle>
-        <CardDescription>
-          Choose an available table and seat to join
-        </CardDescription>
-      </CardHeader>
+    <div className="relative w-full max-w-md mx-auto">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute left-0 top-0 -translate-y-12"
+        onClick={() => window.location.href = '/'}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Return to Main
+      </Button>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Your Table</CardTitle>
+          <CardDescription>
+            Choose an available table and seat to join
+          </CardDescription>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="table">Table Number</Label>
-          <Select
-            value={selectedTable}
-            onValueChange={setSelectedTable}
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="table">Table Number</Label>
+            <Select
+              value={selectedTable}
+              onValueChange={setSelectedTable}
+            >
+              <SelectTrigger id="table">
+                <SelectValue placeholder="Select a table" />
+              </SelectTrigger>
+              <SelectContent>
+                {tables.map((table) => (
+                  <SelectItem key={table.id} value={table.id.toString()}>
+                    Table {table.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="seat">Seat</Label>
+            <Select
+              value={selectedSeat}
+              onValueChange={setSelectedSeat}
+              disabled={!selectedTable || availableSeats.length === 0}
+            >
+              <SelectTrigger id="seat">
+                <SelectValue placeholder="Select a seat" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSeats.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    Seat {code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+
+        <CardFooter>
+          <Button
+            className="w-full"
+            onClick={handleJoinTable}
+            disabled={!selectedTable || !selectedSeat || loading}
           >
-            <SelectTrigger id="table">
-              <SelectValue placeholder="Select a table" />
-            </SelectTrigger>
-            <SelectContent>
-              {tables.map((table) => (
-                <SelectItem key={table.id} value={table.id.toString()}>
-                  Table {table.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="seat">Seat</Label>
-          <Select
-            value={selectedSeat}
-            onValueChange={setSelectedSeat}
-            disabled={!selectedTable || availableSeats.length === 0}
-          >
-            <SelectTrigger id="seat">
-              <SelectValue placeholder="Select a seat" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableSeats.map((code) => (
-                <SelectItem key={code} value={code}>
-                  Seat {code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-
-      <CardFooter>
-        <Button
-          className="w-full"
-          onClick={handleJoinTable}
-          disabled={!selectedTable || !selectedSeat || loading}
-        >
-          {loading ? 'Joining...' : 'Join Table'}
-        </Button>
-      </CardFooter>
-    </Card>
+            {loading ? 'Joining...' : 'Join Table'}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
