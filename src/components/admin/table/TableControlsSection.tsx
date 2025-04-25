@@ -6,10 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageSquare } from 'lucide-react';
-import { useSharedState } from '@/hooks/use-shared-state';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { SupabasePrompt, convertSupabasePromptToPrompt } from '@/types/table';
 
 interface TableControlsSectionProps {
   selectedTable: Table;
@@ -25,77 +21,10 @@ export const TableControlsSection = ({
   onSendPrompt,
 }: TableControlsSectionProps) => {
   const [prompts, setPrompts] = useState<any[]>([]);
-  const { toast } = useToast();
   
   useEffect(() => {
-    const fetchPrompts = async () => {
-      try {
-        // Fetch prompts from Supabase
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          console.error('Error fetching prompts:', error);
-          return;
-        }
-        
-        if (data && data.length > 0) {
-          // Convert Supabase prompts to local format
-          setPrompts(data);
-        } else {
-          // Fallback to local storage data
-          setPrompts(getPrompts());
-        }
-      } catch (error) {
-        console.error('Error in fetchPrompts:', error);
-        // Fallback to local storage data
-        setPrompts(getPrompts());
-      }
-    };
-    
-    fetchPrompts();
+    setPrompts(getPrompts());
   }, []);
-
-  const handleSendPrompt = async () => {
-    if (!selectedTable || !selectedPromptId) return;
-    
-    try {
-      // Update the table in Supabase with the selected prompt ID
-      const { error } = await supabase
-        .from('tables')
-        .update({
-          current_prompt_id: selectedPromptId
-        })
-        .eq('id', selectedTable.id);
-        
-      if (error) {
-        console.error('Error sending prompt to table:', error);
-        toast({
-          title: "Error",
-          description: "Failed to send the prompt to the table.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      toast({
-        title: "Prompt Sent",
-        description: "The prompt has been sent to the table.",
-      });
-      
-      // Call the original onSendPrompt to update local state
-      onSendPrompt();
-    } catch (error) {
-      console.error('Error in handleSendPrompt:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send the prompt to the table.",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <Card className="lg:col-span-1">
@@ -130,7 +59,7 @@ export const TableControlsSection = ({
           
           <Button 
             className="w-full"
-            onClick={handleSendPrompt}
+            onClick={onSendPrompt}
             disabled={!selectedPromptId}
           >
             <MessageSquare className="h-4 w-4 mr-2" />

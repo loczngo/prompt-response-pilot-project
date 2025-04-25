@@ -33,6 +33,7 @@ export const TableManagementSection = ({
               tableId={selectedTable.id}
               seat={seat}
               onToggleStatus={(seatCode) => onSeatStatusToggle(selectedTable.id, seatCode)}
+              onSeatStatusToggle={() => {}}
             />
           ))}
           

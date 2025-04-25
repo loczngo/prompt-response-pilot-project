@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Seat, User, getUsers } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ export const TableSeat: React.FC<TableSeatProps> = ({
 
   return (
     <div className={`flex flex-col items-center justify-center p-4 border rounded-md ${
-      seat.status === 'active' 
+      seat.status === 'available' 
         ? 'bg-white' 
         : 'bg-muted/40'
     }`}>
@@ -62,7 +63,7 @@ export const TableSeat: React.FC<TableSeatProps> = ({
         <div className="flex flex-col items-center justify-center h-16 mt-2">
           <UserIcon className="h-7 w-7 text-muted-foreground" />
           <span className="text-xs text-muted-foreground mt-1">
-            {seat.status === 'active' ? 'Available' : 'Inactive'}
+            {seat.status === 'available' ? 'Available' : 'Inactive'}
           </span>
         </div>
       )}
@@ -76,7 +77,7 @@ export const TableSeat: React.FC<TableSeatProps> = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleToggle}>
-              {seat.status === 'active' ? 'Set Inactive' : 'Set Active'}
+              {seat.status === 'available' ? 'Set Inactive' : 'Set Active'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
