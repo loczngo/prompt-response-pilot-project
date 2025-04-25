@@ -1,10 +1,8 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,18 +19,17 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
     setLoading(true);
 
     try {
+      // Create a valid email format using the username
+      const email = `${username.toLowerCase()}@promptresponse.com`;
+
       if (isSignUp) {
-        // Create a fake email from username for Supabase (since it requires an email format)
-        const fakeEmail = `${username.replace(/\s+/g, '_')}@promptresponse.demo`;
-        
-        // Sign up new guest user with username as identifier
         const { error: signUpError } = await supabase.auth.signUp({
-          email: fakeEmail,
+          email,
           password,
           options: {
             data: {
-              first_name: name || username,
               username: username,
+              first_name: name || username,
               role: 'guest'
             }
           }
@@ -45,15 +42,10 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
           description: "You can now sign in with your credentials.",
         });
         
-        // Automatically switch to sign in mode after successful registration
         setIsSignUp(false);
       } else {
-        // Find the user's email based on username (for sign in)
-        const fakeEmail = `${username.replace(/\s+/g, '_')}@promptresponse.demo`;
-        
-        // Sign in existing guest
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: fakeEmail,
+          email,
           password
         });
 
@@ -64,7 +56,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
       
       toast({
         title: "Error",
-        description: "Unable to complete your request. Please try again.",
+        description: error.message || "Authentication failed. Please try again.",
         variant: "destructive",
       });
     } finally {
