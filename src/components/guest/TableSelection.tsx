@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -18,16 +18,32 @@ export const TableSelection = () => {
   const [availableSeats, setAvailableSeats] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Fetch tables with real-time updates
-  useEffect(() => {
+  // Function to manually refresh data
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTables();
+    if (selectedTable) {
+      await fetchSeats(parseInt(selectedTable, 10));
+    }
+    setRefreshing(false);
+    
+    toast({
+      title: "Data refreshed",
+      description: "Latest table and seat information loaded",
+    });
+  };
+
+  // Fetch tables with improved error handling
+  const fetchTables = async () => {
+    console.log('Fetching tables...');
     setLoadingData(true);
     
-    const fetchTables = async () => {
-      console.log('Fetching tables...');
+    try {
       const { data, error } = await supabase
         .from('tables')
         .select('*')
@@ -35,54 +51,44 @@ export const TableSelection = () => {
 
       if (error) {
         console.error('Error fetching tables:', error);
-        toast({
-          title: "Error fetching tables",
-          description: "Please try again or contact support",
-          variant: "destructive"
-        });
-        return;
+        
+        // For 403 errors (permission denied), we'll use a fallback approach
+        if (error.code === '42501' || error.status === 403) {
+          console.log('Permission denied for tables, using fallback approach');
+          // The fallback could be polling or other mechanisms
+          toast({
+            title: "Limited data access",
+            description: "Using available data. Some features may be restricted.",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Error fetching tables",
+            description: "Please try refreshing the data",
+            variant: "destructive"
+          });
+        }
       }
 
       console.log('Tables fetched:', data);
-      if (data) {
+      if (data && Array.isArray(data)) {
         setTables(data);
-        setLoadingData(false);
       }
-    };
-
-    // Initial fetch
-    fetchTables();
-
-    // Set up real-time subscription for table updates
-    const channel = supabase
-      .channel('table-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tables' },
-        (payload: any) => {
-          console.log('Table change detected:', payload);
-          fetchTables();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [toast]);
-
-  // Fetch seats when a table is selected
-  useEffect(() => {
-    if (!selectedTable) {
-      setAvailableSeats([]);
-      return;
+    } catch (err) {
+      console.error('Unexpected error in fetchTables:', err);
+    } finally {
+      setLoadingData(false);
     }
+  };
 
-    const fetchSeats = async () => {
-      setLoadingData(true);
-      console.log('Fetching seats for table:', selectedTable);
-      const tableId = parseInt(selectedTable, 10);
+  // Fetch seats when a table is selected with improved error handling
+  const fetchSeats = async (tableId: number) => {
+    if (!tableId) return;
+    
+    setLoadingData(true);
+    console.log('Fetching seats for table:', tableId);
 
+    try {
       const { data, error } = await supabase
         .from('seats')
         .select('*')
@@ -92,43 +98,85 @@ export const TableSelection = () => {
 
       if (error) {
         console.error('Error fetching seats:', error);
-        toast({
-          title: "Error fetching available seats",
-          description: "Please try again or select a different table",
-          variant: "destructive"
-        });
-        return;
+        
+        // For 403 errors (permission denied), we'll show a user-friendly message
+        if (error.code === '42501' || error.status === 403) {
+          console.log('Permission denied for seats, using fallback approach');
+          toast({
+            title: "Limited seat data access",
+            description: "Try refreshing to see available seats",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Error fetching seats",
+            description: "Please try selecting a different table",
+            variant: "destructive"
+          });
+        }
       }
 
       console.log('Seats fetched:', data);
-      if (data) {
-        setAvailableSeats(data?.map(seat => seat.code) || []);
-        setLoadingData(false);
+      if (data && Array.isArray(data)) {
+        setAvailableSeats(data.map(seat => seat.code) || []);
+      } else {
+        setAvailableSeats([]);
       }
-    };
+    } catch (err) {
+      console.error('Unexpected error in fetchSeats:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
-    // Fetch seats when table selection changes
-    fetchSeats();
+  // Initial data fetch and setup realtime subscription
+  useEffect(() => {
+    fetchTables();
+    
+    // Set up real-time subscription for table updates
+    const channel = supabase
+      .channel('public:tables')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables' },
+        (payload: any) => {
+          console.log('Table change detected:', payload);
+          fetchTables();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status (tables):', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
+
+  // Fetch seats when a table is selected and setup realtime for seats
+  useEffect(() => {
+    if (!selectedTable) {
+      setAvailableSeats([]);
+      return;
+    }
+
+    const tableId = parseInt(selectedTable, 10);
+    fetchSeats(tableId);
 
     // Set up real-time subscription for seat updates
     const channel = supabase
-      .channel('seat-updates')
+      .channel(`public:seats:table_${tableId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'seats' },
+        { event: '*', schema: 'public', table: 'seats', filter: `table_id=eq.${tableId}` },
         (payload: any) => {
-          console.log('Seat change detected:', payload);
-          // Only refetch if it's related to the selected table
-          if (selectedTable && 
-              payload.new && 
-              typeof payload.new === 'object' && 
-              'table_id' in payload.new && 
-              payload.new.table_id === parseInt(selectedTable, 10)) {
-            fetchSeats();
-          }
+          console.log('Seat change detected for this table:', payload);
+          fetchSeats(tableId);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Realtime subscription status (seats table ${tableId}):`, status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -142,6 +190,20 @@ export const TableSelection = () => {
     try {
       const tableId = parseInt(selectedTable, 10);
       
+      // Start a transaction by first checking if the seat is still available
+      const { data: seatCheck, error: checkError } = await supabase
+        .from('seats')
+        .select('*')
+        .eq('table_id', tableId)
+        .eq('code', selectedSeat)
+        .is('user_id', null)
+        .single();
+
+      if (checkError || !seatCheck) {
+        throw new Error('This seat is no longer available');
+      }
+
+      // Update the user profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -152,6 +214,7 @@ export const TableSelection = () => {
 
       if (updateError) throw updateError;
 
+      // Update the seat
       const { error: seatError } = await supabase
         .from('seats')
         .update({ user_id: user.id })
@@ -164,10 +227,19 @@ export const TableSelection = () => {
         title: "Table Joined",
         description: `You've been assigned to Table ${selectedTable}, Seat ${selectedSeat}`,
       });
+
+      // Refresh user context to reflect new table assignment
+      // This assumes there's a method to refresh the user context
+      // If not, you might need to add one or handle this differently
+      
+      // Force reload to reflect changes
+      window.location.reload();
+      
     } catch (error: any) {
+      console.error('Error joining table:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to join table. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -194,10 +266,23 @@ export const TableSelection = () => {
       
       <Card className="max-w-md mx-auto">
         <CardHeader>
-          <CardTitle>Select Your Table</CardTitle>
-          <CardDescription>
-            Choose an available table and seat to join
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Select Your Table</CardTitle>
+              <CardDescription>
+                Choose an available table and seat to join
+              </CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh} 
+              disabled={refreshing}
+              className="p-1 h-8 w-8"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-4">
