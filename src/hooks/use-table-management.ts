@@ -46,7 +46,9 @@ export const useTableManagement = (userTableNumber?: number) => {
             isDealer: seat.is_dealer || false,
             dealerHandsLeft: undefined
           })),
-          currentPromptId: table.current_prompt_id
+          // The current_prompt_id field doesn't exist in the database
+          // We'll set it to undefined to match our Table type
+          currentPromptId: undefined
         }));
         
         setTables(typedTables);
