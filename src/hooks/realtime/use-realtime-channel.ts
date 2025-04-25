@@ -18,6 +18,13 @@ export const createRealtimeChannel = (channelId: string) => {
     }, (payload) => {
       console.log('Realtime update received for tables:', payload);
     })
+    .on('postgres_changes', { 
+      event: '*', 
+      schema: 'public',
+      table: 'seats'
+    }, (payload) => {
+      console.log('Realtime update received for seats:', payload);
+    })
     .on('postgres_changes', {
       event: '*',
       schema: 'public',

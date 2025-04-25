@@ -16,7 +16,13 @@ export const useDataFetcher = (tableName: string, cacheKey: string) => {
     try {
       let query = supabase.from(tableName as any).select('*');
       
-      if (!isAdmin || tableName !== 'tables') {
+      // For tables, we need to also fetch seat information
+      if (tableName === 'tables') {
+        query = query.select('*, seats(*)');
+      }
+      
+      // Only filter by active status for non-admin users or for tables other than 'tables'
+      if (!isAdmin && tableName !== 'announcements') {
         query = query.eq('status', 'active');
       }
 
@@ -25,35 +31,18 @@ export const useDataFetcher = (tableName: string, cacheKey: string) => {
       if (error) {
         console.error(`Error fetching ${tableName}:`, error);
         
-        // If this is a permission error, try to use cached data
-        if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
-          console.warn(`Permission denied when fetching ${tableName}. This might be an RLS policy issue.`);
-          const cachedData = localStorage.getItem(`cached_${cacheKey}`);
-          
-          if (cachedData) {
-            console.log(`Using cached data for ${tableName}`);
-            return JSON.parse(cachedData);
-          } else {
-            toast({
-              title: `Error loading ${tableName}`,
-              description: "Please try refreshing the page",
-              variant: "destructive"
-            });
-            return [];
-          }
+        // Try loading from cache if available
+        const cachedData = localStorage.getItem(`cached_${cacheKey}`);
+        if (cachedData) {
+          console.log(`Using cached data for ${tableName}`);
+          return JSON.parse(cachedData);
         } else {
-          const cachedData = localStorage.getItem(`cached_${cacheKey}`);
-          if (cachedData) {
-            console.log(`Using cached data for ${tableName}`);
-            return JSON.parse(cachedData);
-          } else {
-            toast({
-              title: `Error loading ${tableName}`,
-              description: "Please try refreshing the page",
-              variant: "destructive"
-            });
-            return [];
-          }
+          toast({
+            title: `Error loading ${tableName}`,
+            description: "Please try refreshing the page",
+            variant: "destructive"
+          });
+          return [];
         }
       }
 

@@ -38,10 +38,8 @@ export const useSeatManagement = (tableId: string) => {
           const parsedSeats = JSON.parse(cachedSeats);
           setAvailableSeats(parsedSeats.map((seat: any) => seat.code));
         } else {
-          // Simplified fallback logic - just generate some seats for the UI
-          console.log('Using fallback seats');
-          const fallbackSeats = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].filter(() => Math.random() > 0.3);
-          setAvailableSeats(fallbackSeats);
+          console.log('No cached seat data available');
+          setAvailableSeats([]);
         }
       } else if (data && Array.isArray(data)) {
         console.log(`Fetched ${data.length} available seats for table ${tableId}`);
@@ -85,10 +83,12 @@ export const useSeatManagement = (tableId: string) => {
         { event: '*', schema: 'public', table: 'seats', filter: `table_id=eq.${numericTableId}` },
         (payload) => {
           console.log('Seat update detected:', payload);
-          setTimeout(() => fetchSeats(tableId), 500);
+          setTimeout(() => fetchSeats(tableId), 100);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Subscription status for seat updates: ${status}`);
+      });
 
     return () => {
       if (channel) {

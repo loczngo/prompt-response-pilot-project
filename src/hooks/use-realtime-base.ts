@@ -28,10 +28,17 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
     setHasAttemptedFetch(true);
     
     try {
-      let query = supabase.from(tableName as any).select('*');
+      let query = supabase.from(tableName as any);
+      
+      // For tables, we need to include seat information
+      if (tableName === 'tables') {
+        query = query.select('*, seats(*)');
+      } else {
+        query = query.select('*');
+      }
       
       // Only filter by active status for non-admin users or for tables other than 'tables'
-      if (!isAdmin || tableName !== 'tables') {
+      if (!isAdmin && tableName !== 'announcements') {
         query = query.eq('status', 'active');
       }
 
@@ -96,7 +103,7 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
           { event: '*', schema: 'public', table: tableName as any },
           (payload) => {
             console.log(`Realtime update for ${tableName}:`, payload);
-            setTimeout(() => fetchData(), 500);
+            setTimeout(() => fetchData(), 100); // Reduced delay for faster updates
           }
         )
         .subscribe((status) => {
@@ -106,10 +113,16 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
       console.error(`Error setting up realtime for ${tableName}:`, err);
     }
 
+    // Also set up polling as a backup for real-time updates
+    const pollingInterval = setInterval(() => {
+      fetchData();
+    }, 10000); // Poll every 10 seconds as backup
+
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
       }
+      clearInterval(pollingInterval);
     };
   }, []);
 

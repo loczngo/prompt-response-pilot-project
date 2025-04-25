@@ -201,7 +201,7 @@ export const useTableManagement = (fixedTableId?: string) => {
       
       const { data: fetchedTables, error } = await supabase
         .from('tables')
-        .select('*');
+        .select('*, seats(*)');
 
       if (error) {
         if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
@@ -228,6 +228,7 @@ export const useTableManagement = (fixedTableId?: string) => {
 
       const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
       
+      console.log('Tables fetched successfully:', convertedTables);
       localStorage.setItem('cached_tables', JSON.stringify(convertedTables));
       
       setTables(convertedTables);
@@ -250,48 +251,33 @@ export const useTableManagement = (fixedTableId?: string) => {
       setSelectedTable(fixedTableId);
     }
     fetchAllTables();
-  }, [fixedTableId]);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        console.log('Attempting to fetch all tables from Supabase...');
-        
-        const { data: fetchedTables, error } = await supabase
-          .from('tables')
-          .select('*');
-  
-        if (error) {
-          if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
-            console.warn('Permission denied when fetching all tables. This might be an RLS policy issue.');
-            
-            const cachedAllTables = localStorage.getItem('cached_all_tables');
-            if (cachedAllTables) {
-              console.log('Using cached all tables data');
-              setAllTables(JSON.parse(cachedAllTables));
-              return;
-            }
-          }
-          throw error;
+    
+    const channel = supabase
+      .channel('table_updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables' },
+        (payload) => {
+          console.log('Table update detected:', payload);
+          fetchAllTables();
         }
-  
-        const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
-        
-        localStorage.setItem('cached_all_tables', JSON.stringify(convertedTables));
-        
-        setAllTables(convertedTables);
-      } catch (error) {
-        console.error('Error fetching all tables:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch all tables. Please check your connection and permissions.",
-          variant: "destructive"
-        });
-      }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'seats' },
+        (payload) => {
+          console.log('Seat update detected:', payload);
+          fetchAllTables();
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Subscription status for table updates: ${status}`);
+      });
+    
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    fetchAll();
-  }, []);
+  }, [fixedTableId]);
 
   return {
     tables,

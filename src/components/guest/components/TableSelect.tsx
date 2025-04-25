@@ -1,6 +1,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 interface TableSelectProps {
   tables: any[];
@@ -18,7 +19,7 @@ export const TableSelect = ({ tables, selectedTable, onTableSelect, loadingData 
         onValueChange={onTableSelect}
         disabled={loadingData || tables.length === 0}
       >
-        <SelectTrigger id="table">
+        <SelectTrigger id="table" className="w-full">
           <SelectValue placeholder={loadingData ? "Loading tables..." : "Select a table"} />
         </SelectTrigger>
         <SelectContent>
@@ -27,7 +28,10 @@ export const TableSelect = ({ tables, selectedTable, onTableSelect, loadingData 
           ) : (
             tables.map((table) => (
               <SelectItem key={table.id} value={table.id.toString()}>
-                Table {table.id}
+                Table {table.id} {' '}
+                <Badge variant={table.status === 'active' ? 'outline' : 'secondary'} className="ml-1">
+                  {table.seats?.length || 0} seats
+                </Badge>
               </SelectItem>
             ))
           )}
