@@ -30,7 +30,9 @@ export const useTableManagement = (fixedTableId?: string) => {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchAllTables();
+    fetchAllTables().finally(() => {
+      setRefreshing(false);
+    });
   };
 
   const handleTableSelect = () => {
@@ -57,6 +59,15 @@ export const useTableManagement = (fixedTableId?: string) => {
         .eq('id', table.id);
 
       if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
+          console.warn('Permission denied when updating table status. This might be an RLS policy restriction.');
+          toast({
+            title: "Permission Error",
+            description: "You don't have permission to change table status. Please contact an administrator.",
+            variant: "destructive"
+          });
+          return;
+        }
         throw error;
       }
 
@@ -186,13 +197,39 @@ export const useTableManagement = (fixedTableId?: string) => {
   const fetchAllTables = async () => {
     setLoadingData(true);
     try {
+      console.log('Attempting to fetch tables from Supabase...');
+      
       const { data: fetchedTables, error } = await supabase
         .from('tables')
         .select('*');
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
+          console.warn('Permission denied when fetching tables. This might be an RLS policy issue.');
+          
+          const cachedTables = localStorage.getItem('cached_tables');
+          if (cachedTables) {
+            console.log('Using cached tables data');
+            const parsedTables = JSON.parse(cachedTables);
+            setTables(parsedTables);
+            setAllTables(parsedTables);
+            setHasAttemptedFetch(true);
+            return;
+          }
+          
+          toast({
+            title: "Permission Error",
+            description: "You don't have permission to view tables. Please contact an administrator.",
+            variant: "destructive"
+          });
+        }
+        throw error;
+      }
 
       const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
+      
+      localStorage.setItem('cached_tables', JSON.stringify(convertedTables));
+      
       setTables(convertedTables);
       setAllTables(convertedTables);
       setHasAttemptedFetch(true);
@@ -200,7 +237,7 @@ export const useTableManagement = (fixedTableId?: string) => {
       console.error('Error fetching tables:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch tables",
+        description: "Failed to fetch tables. Please check your connection and permissions.",
         variant: "destructive"
       });
     } finally {
@@ -218,19 +255,36 @@ export const useTableManagement = (fixedTableId?: string) => {
   useEffect(() => {
     const fetchAll = async () => {
       try {
+        console.log('Attempting to fetch all tables from Supabase...');
+        
         const { data: fetchedTables, error } = await supabase
           .from('tables')
           .select('*');
   
-        if (error) throw error;
+        if (error) {
+          if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
+            console.warn('Permission denied when fetching all tables. This might be an RLS policy issue.');
+            
+            const cachedAllTables = localStorage.getItem('cached_all_tables');
+            if (cachedAllTables) {
+              console.log('Using cached all tables data');
+              setAllTables(JSON.parse(cachedAllTables));
+              return;
+            }
+          }
+          throw error;
+        }
   
         const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
+        
+        localStorage.setItem('cached_all_tables', JSON.stringify(convertedTables));
+        
         setAllTables(convertedTables);
       } catch (error) {
         console.error('Error fetching all tables:', error);
         toast({
           title: "Error",
-          description: "Failed to fetch all tables",
+          description: "Failed to fetch all tables. Please check your connection and permissions.",
           variant: "destructive"
         });
       }
@@ -247,7 +301,7 @@ export const useTableManagement = (fixedTableId?: string) => {
     setTableNumber,
     setSelectedTable,
     handleRefresh,
-    handleTableSelect,
+    handleTableSelect: () => setSelectedTable(tableNumber),
     handleTableStatusToggle,
     handleSeatStatusToggle,
     removeUserFromSeat,

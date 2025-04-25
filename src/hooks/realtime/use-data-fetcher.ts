@@ -24,17 +24,36 @@ export const useDataFetcher = (tableName: string, cacheKey: string) => {
 
       if (error) {
         console.error(`Error fetching ${tableName}:`, error);
-        const cachedData = localStorage.getItem(`cached_${cacheKey}`);
-        if (cachedData) {
-          console.log(`Using cached data for ${tableName}`);
-          return JSON.parse(cachedData);
+        
+        // If this is a permission error, try to use cached data
+        if (error.code === 'PGRST301' || error.message.includes('permission denied')) {
+          console.warn(`Permission denied when fetching ${tableName}. This might be an RLS policy issue.`);
+          const cachedData = localStorage.getItem(`cached_${cacheKey}`);
+          
+          if (cachedData) {
+            console.log(`Using cached data for ${tableName}`);
+            return JSON.parse(cachedData);
+          } else {
+            toast({
+              title: `Error loading ${tableName}`,
+              description: "Please try refreshing the page",
+              variant: "destructive"
+            });
+            return [];
+          }
         } else {
-          toast({
-            title: `Error loading ${tableName}`,
-            description: "Please try refreshing the page",
-            variant: "destructive"
-          });
-          return [];
+          const cachedData = localStorage.getItem(`cached_${cacheKey}`);
+          if (cachedData) {
+            console.log(`Using cached data for ${tableName}`);
+            return JSON.parse(cachedData);
+          } else {
+            toast({
+              title: `Error loading ${tableName}`,
+              description: "Please try refreshing the page",
+              variant: "destructive"
+            });
+            return [];
+          }
         }
       }
 
@@ -47,6 +66,14 @@ export const useDataFetcher = (tableName: string, cacheKey: string) => {
       return [];
     } catch (err) {
       console.error(`Unexpected error in fetch${tableName}:`, err);
+      
+      // Try to use cached data as a last resort
+      const cachedData = localStorage.getItem(`cached_${cacheKey}`);
+      if (cachedData) {
+        console.log(`Using cached data for ${tableName} after error`);
+        return JSON.parse(cachedData);
+      }
+      
       return [];
     }
   };
