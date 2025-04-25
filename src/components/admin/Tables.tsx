@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ const Tables = () => {
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle
-  } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber : undefined);
+  } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber?.toString() : undefined);
 
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
@@ -56,7 +57,7 @@ const Tables = () => {
     
     toast({
       title: "Message Sent",
-      description: `Message has been sent to Table ${selectedTable?.id}.`,
+      description: `Message has been sent to Table ${selectedTable}.`,
     });
     setShowMessageDialog(false);
   };
@@ -119,14 +120,15 @@ const Tables = () => {
     );
   }
 
-  const selectedTableObj = selectedTable ? getTable(parseInt(selectedTable, 10)) : null;
+  const selectedTableId = selectedTable ? parseInt(selectedTable, 10) : null;
+  const selectedTableObj = selectedTableId ? getTable(selectedTableId) : null;
 
   const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
     
-    const tableObj = getTable(parseInt(selectedTable, 10));
-    if (tableObj) {
-      updateTable(tableObj.id, { currentPromptId: selectedPromptId });
+    const tableId = parseInt(selectedTable, 10);
+    if (!isNaN(tableId)) {
+      updateTable(tableId, { currentPromptId: selectedPromptId });
       handleRefresh();
       
       toast({
@@ -187,7 +189,7 @@ const Tables = () => {
       )}
 
       <SendMessageDialog
-        tableId={selectedTable?.id.toString() || ''}
+        tableId={selectedTable || ''}
         open={showMessageDialog}
         onOpenChange={setShowMessageDialog}
         onSendMessage={handleSendMessage}
