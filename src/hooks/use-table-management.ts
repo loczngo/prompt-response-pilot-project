@@ -21,7 +21,8 @@ export const useTableManagement = (userTableNumber?: number) => {
       console.log('Fetching tables from Supabase...');
       const { data: tablesData, error } = await supabase
         .from('tables')
-        .select('*, seats(*)');
+        .select('*, seats(*)')
+        .order('id');
       
       if (error) {
         console.error('Error fetching tables:', error);
@@ -31,7 +32,7 @@ export const useTableManagement = (userTableNumber?: number) => {
           variant: "destructive",
         });
       } else if (tablesData) {
-        console.log(`Retrieved ${tablesData.length} tables from database`);
+        console.log(`Retrieved ${tablesData.length} tables from database:`, tablesData);
         
         // Transform and validate the data to match our Table type
         const typedTables: Table[] = tablesData.map(table => ({
@@ -75,29 +76,42 @@ export const useTableManagement = (userTableNumber?: number) => {
   // Initial data fetch
   useEffect(() => {
     fetchTables();
+    
+    // Setup polling as backup for realtime updates
+    const pollingInterval = setInterval(() => {
+      fetchTables();
+    }, 30000); // Poll every 30 seconds as a fallback
+    
+    return () => clearInterval(pollingInterval);
   }, [fetchTables]);
 
   // Setup realtime subscription for tables
   useEffect(() => {
-    const channel = supabase.channel('table-updates');
+    console.log('Setting up realtime subscription for tables and seats');
     
-    channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'tables' },
-      () => {
-        console.log('Table change detected, refreshing data');
-        fetchTables();
-      }
-    ).on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'seats' },
-      () => {
-        console.log('Seat change detected, refreshing data');
-        fetchTables();
-      }
-    ).subscribe();
+    const channel = supabase.channel('table-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables' },
+        (payload) => {
+          console.log('Table change detected, refreshing data:', payload);
+          fetchTables();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'seats' },
+        (payload) => {
+          console.log('Seat change detected, refreshing data:', payload);
+          fetchTables();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime channel status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [fetchTables]);

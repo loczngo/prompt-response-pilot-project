@@ -1,5 +1,4 @@
 
-
 import { Table, Seat, User } from '@/lib/mockDb';
 
 export type { Table, Seat, User };
@@ -15,4 +14,3 @@ export interface TableManagementHook {
   handleTableStatusToggle: (tableId: number) => void;
   handleSeatStatusToggle: (tableId: number, seatCode: string) => void;
 }
-
