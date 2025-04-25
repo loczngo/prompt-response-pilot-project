@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const TableSelection = () => {
   const [tables, setTables] = useState<any[]>([]);
@@ -15,8 +16,9 @@ export const TableSelection = () => {
   const [selectedSeat, setSelectedSeat] = useState<string>('');
   const [availableSeats, setAvailableSeats] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchTables = async () => {
@@ -103,13 +105,18 @@ export const TableSelection = () => {
     }
   };
 
+  const handleReturnToMain = () => {
+    logout(); // Log out the user to return to the role selection screen
+    navigate('/'); // Navigate back to the main page
+  };
+
   return (
     <div className="container mx-auto py-12 px-4">
       <Button
         variant="outline"
         size="sm"
         className="mb-6 flex items-center"
-        onClick={() => window.location.href = '/'}
+        onClick={handleReturnToMain}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Return to Main
@@ -177,3 +184,4 @@ export const TableSelection = () => {
     </div>
   );
 };
+
