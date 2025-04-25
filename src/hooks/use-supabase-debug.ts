@@ -12,9 +12,13 @@ export const useSupabaseDebug = () => {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        // First check if Supabase connection is working
-        // Use proper typing to fix the TypeScript error
-        const { data, error } = await supabase.rpc('postgres_version' as any);
+        // First check if Supabase connection is working by making a simple health check query
+        // We'll use a simple query that doesn't require specific RPC functions
+        const { error } = await supabase
+          .from('tables')
+          .select('count')
+          .limit(1)
+          .single();
         
         if (error) {
           console.warn('Supabase connection check error:', error);
