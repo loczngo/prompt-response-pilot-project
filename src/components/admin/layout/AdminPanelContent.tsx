@@ -5,12 +5,16 @@ import Users from '@/components/admin/Users';
 import Tables from '@/components/admin/Tables';
 import Announcements from '@/components/admin/Announcements';
 import Reports from '@/components/admin/Reports';
+import { useRealtimeEnabler } from '@/hooks/use-realtime-enabler';
 
 type AdminPanelContentProps = {
   currentSection: string;
 };
 
 const AdminPanelContent = ({ currentSection }: AdminPanelContentProps) => {
+  // Enable realtime updates for this component
+  useRealtimeEnabler();
+  
   switch (currentSection) {
     case 'dashboard':
       return <Dashboard />;
