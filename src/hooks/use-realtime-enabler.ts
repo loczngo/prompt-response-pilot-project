@@ -47,7 +47,7 @@ export const useRealtimeEnabler = () => {
           }
         });
 
-      // Return cleanup function instead of Promise
+      // Return cleanup function
       return () => {
         console.log(`Cleaning up realtime connection: ${channelId}`);
         supabase.removeChannel(channel);
@@ -67,12 +67,12 @@ export const useRealtimeEnabler = () => {
 
   // Set up automatic reconnection with exponential backoff
   useEffect(() => {
-    let cleanup = connectRealtime();
-    let cleanupFn: () => void;
+    const cleanupPromise = connectRealtime();
+    let cleanupFn: (() => void) | undefined;
     
-    // Handle the Promise returned by connectRealtime
-    cleanup.then(cleanupFunction => {
-      cleanupFn = cleanupFunction;
+    // Handle the Promise correctly
+    cleanupPromise.then(fn => {
+      cleanupFn = fn;
     });
     
     // If we're not enabled and haven't exceeded max attempts, try reconnecting
@@ -85,10 +85,12 @@ export const useRealtimeEnabler = () => {
       
       reconnectTimer = window.setTimeout(() => {
         setConnectionAttempts(prev => prev + 1);
-        // Handle the Promise correctly
+        // Clean up previous connection if it exists
         if (cleanupFn) cleanupFn();
-        connectRealtime().then(newCleanupFn => {
-          cleanupFn = newCleanupFn;
+        
+        // Create new connection
+        connectRealtime().then(newFn => {
+          cleanupFn = newFn;
         });
       }, delay);
     }
