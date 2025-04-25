@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -103,18 +104,18 @@ export const TableSelection = () => {
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto">
+    <div className="container mx-auto py-12 px-4">
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="absolute left-0 top-0 -translate-y-12"
+        className="mb-6 flex items-center"
         onClick={() => window.location.href = '/'}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Return to Main
       </Button>
       
-      <Card>
+      <Card className="max-w-md mx-auto">
         <CardHeader>
           <CardTitle>Select Your Table</CardTitle>
           <CardDescription>
