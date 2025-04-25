@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useTableManagement } from './use-table-management';
 import { useSeatManagement } from './use-seat-management';
+import type { Table } from '@/lib/mockDb';
 
 export const useTableSeatSelection = () => {
   const {

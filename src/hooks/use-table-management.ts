@@ -6,14 +6,15 @@ import { supabase } from '@/integrations/supabase/client';
 interface TableData {
   created_at: string;
   id: number;
-  status: string;
-  seats: any[];  // Add the seats property to match Table type
+  status: 'active' | 'inactive';
+  seats: any[];
 }
 
 const convertToTable = (data: TableData): Table => {
   return {
     ...data,
-    seats: data.seats || []
+    seats: data.seats || [],
+    status: data.status as 'active' | 'inactive'
   };
 };
 
@@ -22,9 +23,13 @@ export const useTableManagement = (fixedTableId?: string) => {
   const [allTables, setAllTables] = useState<Table[]>([]);
   const [tableNumber, setTableNumber] = useState(fixedTableId || '');
   const [selectedTable, setSelectedTable] = useState('');
+  const [loadingData, setLoadingData] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   const { toast } = useToast();
 
   const handleRefresh = () => {
+    setRefreshing(true);
     fetchAllTables();
   };
 
@@ -143,7 +148,6 @@ export const useTableManagement = (fixedTableId?: string) => {
         return;
       }
   
-      // First, update the user's profile to remove table and seat assignments
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ table_number: null, seat_code: null })
@@ -153,7 +157,6 @@ export const useTableManagement = (fixedTableId?: string) => {
         throw profileError;
       }
   
-      // Then, update the seat to remove the user assignment
       const { error: seatError } = await supabase
         .from('seats')
         .update({ user_id: null })
@@ -181,6 +184,7 @@ export const useTableManagement = (fixedTableId?: string) => {
   };
 
   const fetchAllTables = async () => {
+    setLoadingData(true);
     try {
       const { data: fetchedTables, error } = await supabase
         .from('tables')
@@ -188,9 +192,10 @@ export const useTableManagement = (fixedTableId?: string) => {
 
       if (error) throw error;
 
-      // Convert fetched data to Table type
       const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
       setTables(convertedTables);
+      setAllTables(convertedTables);
+      setHasAttemptedFetch(true);
     } catch (error) {
       console.error('Error fetching tables:', error);
       toast({
@@ -198,6 +203,8 @@ export const useTableManagement = (fixedTableId?: string) => {
         description: "Failed to fetch tables",
         variant: "destructive"
       });
+    } finally {
+      setLoadingData(false);
     }
   };
 
@@ -217,7 +224,6 @@ export const useTableManagement = (fixedTableId?: string) => {
   
         if (error) throw error;
   
-        // Convert fetched data to Table type
         const convertedTables = (fetchedTables as TableData[]).map(convertToTable);
         setAllTables(convertedTables);
       } catch (error) {
@@ -239,11 +245,15 @@ export const useTableManagement = (fixedTableId?: string) => {
     tableNumber,
     selectedTable,
     setTableNumber,
+    setSelectedTable,
     handleRefresh,
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle,
     removeUserFromSeat,
-    fetchAllTables
+    fetchAllTables,
+    loadingData,
+    refreshing,
+    hasAttemptedFetch
   };
 };
