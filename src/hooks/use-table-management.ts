@@ -35,17 +35,14 @@ export const useTableManagement = (userTableNumber?: number) => {
         // Transform and validate the data to match our Table type
         const typedTables: Table[] = tablesData.map(table => ({
           id: table.id,
-          // Ensure status is either 'active' or 'inactive'
           status: table.status === 'active' ? 'active' : 'inactive',
           seats: (table.seats || []).map(seat => ({
             code: seat.code,
             userId: seat.user_id || undefined,
-            // Ensure seat status is either 'active' or 'inactive'
             status: seat.status === 'active' ? 'active' : 'inactive',
             isDealer: seat.is_dealer || false,
             dealerHandsLeft: undefined
           })),
-          // Handle the current_prompt_id field if it exists in the database
           currentPromptId: table.current_prompt_id || undefined
         }));
         

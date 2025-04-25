@@ -93,7 +93,10 @@ const Tables = () => {
       
       const { error } = await supabase
         .from('tables')
-        .update({ current_prompt_id: selectedPromptId })
+        .update({ 
+          status: selectedTable.status,
+          current_prompt_id: selectedPromptId 
+        })
         .eq('id', selectedTable.id);
       
       if (error) {
