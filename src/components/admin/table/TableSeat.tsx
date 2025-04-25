@@ -1,19 +1,17 @@
 
 import { Seat, getUsers } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
-import { UserCheck, UserX, UserMinus } from 'lucide-react';
+import { UserCheck, UserX } from 'lucide-react';
 
 interface TableSeatProps {
   tableId: number;
   seat: Seat;
   onToggleStatus: (seatCode: string) => void;
-  onRemoveUser?: (seatCode: string) => void;
 }
 
-export const TableSeat = ({ tableId, seat, onToggleStatus, onRemoveUser }: TableSeatProps) => {
+export const TableSeat = ({ tableId, seat, onToggleStatus }: TableSeatProps) => {
   // Get user information directly from the users list
   const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : undefined;
-  const isOccupied = !!seat.userId;
 
   return (
     <div 
@@ -56,21 +54,10 @@ export const TableSeat = ({ tableId, seat, onToggleStatus, onRemoveUser }: Table
         </div>
         
         <div className="flex items-center space-x-2">
-          {isOccupied && onRemoveUser && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => onRemoveUser(seat.code)}
-              title="Remove user from seat"
-            >
-              <UserMinus className="h-4 w-4 text-amber-500" />
-            </Button>
-          )}
           <Button
             variant="outline"
             size="icon"
             onClick={() => onToggleStatus(seat.code)}
-            title={seat.status === 'active' ? 'Deactivate seat' : 'Activate seat'}
           >
             {seat.status === 'active' ? (
               <UserX className="h-4 w-4" />

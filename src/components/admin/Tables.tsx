@@ -1,125 +1,135 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Table, Seat, User, Prompt, Response, getTables, getTable, updateTable, updateTableSeat, getPrompts, getResponses, getUsers, createResponse, deleteResponse } from '@/lib/mockDb';
+import { 
+  Table, 
+  Seat, 
+  User, 
+  Prompt, 
+  Response,
+  getTables, 
+  getTable, 
+  updateTable, 
+  updateTableSeat, 
+  getPrompts, 
+  getResponses,
+  getUsers,
+  createResponse,
+  deleteResponse
+} from '@/lib/mockDb';
+import { 
+  ArrowDown, 
+  ArrowUpDown, 
+  Download, 
+  MessageSquare, 
+  Printer, 
+  RefreshCcw, 
+  Send, 
+  UserCheck, 
+  UserX 
+} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { format, parseISO } from 'date-fns';
 import { useTableManagement } from '@/hooks/use-table-management';
 import { TableSelector } from './table/TableSelector';
 import { TableManagementSection } from './table/TableManagementSection';
-import { TableResponsesSection } from './table/TableResponsesSection';
 import { TableControlsSection } from './table/TableControlsSection';
-import { SendMessageDialog } from './table/actions/SendMessageDialog';
-import { PlayerDealerDialog } from './table/actions/PlayerDealerDialog';
-import { CreateTableDialog } from './table/actions/CreateTableDialog';
+import { TableResponsesSection } from './table/TableResponsesSection';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { supabase } from '@/integrations/supabase/client';
 
 const Tables = () => {
+  const [selectedPromptId, setSelectedPromptId] = useState<string>('');
+  const [tableMessage, setTableMessage] = useState('');
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showPlayerDealerDialog, setShowPlayerDealerDialog] = useState(false);
   const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
-  const [selectedPromptId, setSelectedPromptId] = useState<string>('');
+  const [newTableSeats, setNewTableSeats] = useState<number>(6);
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
   const {
-    tables,
-    allTables,
+    tables: realtimeTables,
     tableNumber,
     selectedTable,
     setTableNumber,
-    handleRefresh,
+    refreshTables,
     handleTableSelect,
     handleTableStatusToggle,
-    handleSeatStatusToggle,
-    removeUserFromSeat,
-    fetchAllTables
-  } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber?.toString() : undefined);
+    handleSeatStatusToggle
+  } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber : undefined);
 
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
     return (
-      <Card className="w-full max-w-md">
-        <CardContent className="p-6 text-center">
-          <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-          <p className="text-muted-foreground">
-            You don't have permission to manage tables.
-            Only Table Admins and Super Admins can access this section.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-full">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
+            <p className="text-muted-foreground">
+              You don't have permission to manage tables.
+              Only Table Admins and Super Admins can access this section.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   const showTableSelector = currentUser?.role === 'super-admin';
   const isTableAdminWithoutTable = currentUser?.role === 'table-admin' && !currentUser?.tableNumber;
 
-  const handleSendMessage = (message: string) => {
-    if (!selectedTable || !message) return;
+  const handleSendPrompt = () => {
+    if (!selectedTable || !selectedPromptId) return;
+    
+    updateTable(selectedTable.id, { currentPromptId: selectedPromptId });
+    refreshTables();
+    
+    toast({
+      title: "Prompt Sent",
+      description: "The prompt has been sent to the table.",
+    });
+  };
+
+  const handleSendMessage = () => {
+    if (!selectedTable || !tableMessage) return;
     
     toast({
       title: "Message Sent",
-      description: `Message has been sent to Table ${selectedTable}.`,
+      description: `Message has been sent to Table ${selectedTable.id}.`,
     });
+    
+    setTableMessage('');
     setShowMessageDialog(false);
   };
 
-  const handlePlayerDealerSelect = (seatCode: string) => {
+  const handleExportData = () => {
     if (!selectedTable) return;
     
     toast({
-      title: "Player-Dealer Query Sent",
-      description: `Sent query to seat ${seatCode}.`,
+      title: "Data Exported",
+      description: `Table ${selectedTable.id} data has been exported.`,
     });
   };
 
-  const handleCreateTable = async (seats: number) => {
-    try {
-      // Create a new table in Supabase
-      const { data: newTableData, error: tableError } = await supabase
-        .from('tables')
-        .insert({ status: 'active' })
-        .select()
-        .single();
-      
-      if (tableError) {
-        throw tableError;
-      }
-      
-      // Create seats for the new table
-      const seatsToInsert = Array.from({ length: seats }, (_, i) => ({
-        table_id: newTableData.id,
-        code: String.fromCharCode(65 + i), // A, B, C, etc.
-        status: 'active',
-        is_dealer: false
-      }));
-      
-      const { error: seatsError } = await supabase
-        .from('seats')
-        .insert(seatsToInsert);
-      
-      if (seatsError) {
-        throw seatsError;
-      }
-      
-      // Refresh the tables data
-      fetchAllTables();
-      handleRefresh();
-      setShowCreateTableDialog(false);
-      
-      toast({
-        title: "Table Created",
-        description: `Table ${newTableData.id} has been created with ${seats} seats.`,
-      });
-    } catch (error: any) {
-      console.error('Error creating table:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create table",
-        variant: "destructive"
-      });
-    }
+  const handlePrintReport = () => {
+    if (!selectedTable) return;
+    
+    toast({
+      title: "Report Printed",
+      description: `Table ${selectedTable.id} report has been sent to printer.`,
+    });
+  };
+
+  const handlePlayerDealerQuery = () => {
+    if (!selectedTable) return;
+    setShowPlayerDealerDialog(true);
   };
 
   const handleDeleteResponse = (responseId: string) => {
@@ -129,46 +139,33 @@ const Tables = () => {
         title: "Response Deleted",
         description: "The response has been removed from the system.",
       });
-      handleRefresh();
+      refreshTables();
     }
   };
 
-  const handleRemoveUser = (tableId: number, seatCode: string) => {
-    removeUserFromSeat(tableId.toString(), seatCode);
-  };
-
-  if (isTableAdminWithoutTable) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-amber-500 font-medium mb-2">No Table Assigned</p>
-          <p className="text-muted-foreground">
-            You don't have a table assigned to your account. Please contact a Super Admin to assign you a table.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const selectedTableId = selectedTable ? parseInt(selectedTable, 10) : null;
-  const selectedTableObj = selectedTableId ? getTable(selectedTableId) : null;
-
-  const handleSendPrompt = () => {
-    if (!selectedTable || !selectedPromptId) return;
+  const handleCreateTable = () => {
+    const tables = getTables();
+    const newTableId = Math.max(...tables.map(t => t.id), 0) + 1;
     
-    const tableId = parseInt(selectedTable, 10);
-    if (!isNaN(tableId)) {
-      updateTable(tableId, { currentPromptId: selectedPromptId });
-      handleRefresh();
-      
-      toast({
-        title: "Prompt Sent",
-        description: "The prompt has been sent to the table.",
-      });
-    }
-  };
+    const newTable: Table = {
+      id: newTableId,
+      status: 'active',
+      seats: Array.from({ length: newTableSeats }, (_, i) => ({
+        code: String.fromCharCode(65 + i), // A, B, C, etc.
+        status: 'active',
+        isDealer: false
+      }))
+    };
 
-  const displayTables = showTableSelector ? allTables || [] : tables || [];
+    localStorage.setItem('prs_tables', JSON.stringify([...tables, newTable]));
+    refreshTables();
+    setShowCreateTableDialog(false);
+    
+    toast({
+      title: "Table Created",
+      description: `Table ${newTableId} has been created with ${newTableSeats} seats.`,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -180,16 +177,27 @@ const Tables = () => {
               Create New Table
             </Button>
           )}
-          <Button onClick={handleRefresh}>
+          <Button onClick={refreshTables}>
             <RefreshCcw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
         </div>
       </div>
 
+      {isTableAdminWithoutTable && (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-amber-500 font-medium mb-2">No Table Assigned</p>
+            <p className="text-muted-foreground">
+              You don't have a table assigned to your account. Please contact a Super Admin to assign you a table.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {showTableSelector && (
         <TableSelector
-          tables={displayTables as Table[]}
+          tables={realtimeTables}
           tableNumber={tableNumber}
           selectedTable={selectedTable}
           onTableNumberChange={setTableNumber}
@@ -198,50 +206,245 @@ const Tables = () => {
         />
       )}
 
-      {selectedTable && selectedTableObj && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <TableManagementSection
-            selectedTable={selectedTableObj}
-            onSeatStatusToggle={(_, seatCode) => handleSeatStatusToggle(selectedTable, seatCode)}
-            onPlayerDealerQuery={() => setShowPlayerDealerDialog(true)}
-            onRemoveUser={handleRemoveUser}
-          />
+      {selectedTable ? (
+        <Tabs defaultValue="management">
+          <TabsList className="mb-4">
+            <TabsTrigger value="management">Table Management</TabsTrigger>
+            <TabsTrigger value="responses">Responses</TabsTrigger>
+          </TabsList>
           
-          <TableControlsSection
-            selectedTable={selectedTableObj}
-            selectedPromptId={selectedPromptId}
-            onPromptSelect={setSelectedPromptId}
-            onSendPrompt={handleSendPrompt}
-          />
+          <TabsContent value="management">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <TableManagementSection
+                selectedTable={selectedTable}
+                onSeatStatusToggle={handleSeatStatusToggle}
+                onPlayerDealerQuery={handlePlayerDealerQuery}
+              />
+              
+              <TableControlsSection
+                selectedTable={selectedTable}
+                selectedPromptId={selectedPromptId}
+                onPromptSelect={setSelectedPromptId}
+                onSendPrompt={handleSendPrompt}
+              />
+              
+              <Card className="lg:col-span-1">
+                <CardHeader>
+                  <CardTitle>Administrative Actions</CardTitle>
+                  <CardDescription>
+                    Manage table operations
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="space-y-4">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowMessageDialog(true)}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Table Message
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={handleExportData}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Data
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={handlePrintReport}
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print Report
+                    </Button>
+                    
+                    <div className="mt-6 pt-4 border-t">
+                      <h3 className="text-sm font-medium mb-4">Table Statistics</h3>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Occupied Seats:</span>
+                          <span className="font-medium">
+                            {selectedTable.seats.filter(s => s.status === 'active' && s.userId).length} / 
+                            {selectedTable.seats.filter(s => s.status === 'active').length}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Response Rate:</span>
+                          <span className="font-medium">
+                            {/* {tableResponses.length > 0 ? 
+                              Math.round((tableResponses.length / selectedTable.seats.filter(s => s.status === 'active').length) * 100) + '%' : 
+                              '0%'
+                            } */}0%
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Average Rating:</span>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            selectedTable.status === 'active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {selectedTable.status.charAt(0).toUpperCase() + selectedTable.status.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
           
-          <TableResponsesSection
-            selectedTable={selectedTableObj}
-            onDeleteResponse={handleDeleteResponse}
-          />
-        </div>
+          <TabsContent value="responses">
+            <TableResponsesSection
+              selectedTable={selectedTable}
+              onDeleteResponse={handleDeleteResponse}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        !isTableAdminWithoutTable && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">
+                {currentUser?.role === 'super-admin' 
+                  ? 'Select a table to view and manage' 
+                  : 'No table assigned to you'
+                }
+              </p>
+            </CardContent>
+          </Card>
+        )
       )}
 
-      <SendMessageDialog
-        tableId={selectedTable || ''}
-        open={showMessageDialog}
-        onOpenChange={setShowMessageDialog}
-        onSendMessage={handleSendMessage}
-      />
+      <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Message to Table {selectedTable?.id}</DialogTitle>
+            <DialogDescription>
+              This message will be displayed to all players at the table.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="table-message">Message</Label>
+              <Input
+                id="table-message"
+                placeholder="Enter your message..."
+                value={tableMessage}
+                onChange={(e) => setTableMessage(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendMessage} disabled={!tableMessage}>Send</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {selectedTable && selectedTableObj && (
-        <PlayerDealerDialog
-          selectedTable={selectedTableObj}
-          open={showPlayerDealerDialog}
-          onOpenChange={setShowPlayerDealerDialog}
-          onPlayerDealerSelect={handlePlayerDealerSelect}
-        />
-      )}
+      <Dialog open={showPlayerDealerDialog} onOpenChange={setShowPlayerDealerDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Player-Dealer Inquiry</DialogTitle>
+            <DialogDescription>
+              Select a seat to query for Player-Dealer role
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              {selectedTable?.seats
+                .filter(seat => seat.status === 'active' && seat.userId && !seat.isDealer)
+                .map(seat => {
+                  const user = getUsers().find(u => u.id === seat.userId);
+                  
+                  return (
+                    <Button
+                      key={seat.code}
+                      variant="outline"
+                      className="p-4 h-auto"
+                      onClick={() => {
+                        toast({
+                          title: "Player-Dealer Query Sent",
+                          description: `Sent query to seat ${seat.code}.`
+                        });
+                        setShowPlayerDealerDialog(false);
+                      }}
+                    >
+                      <div className="text-center">
+                        <div className="font-medium">Seat {seat.code}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {user ? `${user.firstName} ${user.lastName}` : 'Unknown'}
+                        </div>
+                      </div>
+                    </Button>
+                  );
+                })}
+            </div>
+            
+            {(selectedTable?.seats.filter(seat => 
+              seat.status === 'active' && seat.userId && !seat.isDealer
+            ).length || 0) === 0 && (
+              <div className="text-center p-4 text-muted-foreground">
+                No eligible seats available. Seats must be active and occupied.
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPlayerDealerDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <CreateTableDialog
-        open={showCreateTableDialog}
-        onOpenChange={setShowCreateTableDialog}
-        onCreateTable={handleCreateTable}
-      />
+      <Dialog open={showCreateTableDialog} onOpenChange={setShowCreateTableDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Table</DialogTitle>
+            <DialogDescription>
+              Create a new table by specifying the number of seats.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="seats">Number of Seats</Label>
+              <Input
+                id="seats"
+                type="number"
+                min={2}
+                max={12}
+                value={newTableSeats}
+                onChange={(e) => setNewTableSeats(parseInt(e.target.value) || 6)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTableDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTable}>Create Table</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

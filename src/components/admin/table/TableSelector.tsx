@@ -3,15 +3,14 @@ import { Table } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 
 interface TableSelectorProps {
   tables: Table[];
   tableNumber: string;
-  selectedTable: string;
+  selectedTable: Table | null;
   onTableNumberChange: (value: string) => void;
   onTableSelect: () => void;
-  onTableStatusToggle: (tableId: string) => void;
+  onTableStatusToggle: (tableId: number) => void;
 }
 
 export const TableSelector = ({
@@ -22,9 +21,6 @@ export const TableSelector = ({
   onTableSelect,
   onTableStatusToggle
 }: TableSelectorProps) => {
-  // Find the selected table object for status display
-  const selectedTableObj = tables.find(t => t.id.toString() === selectedTable);
-
   return (
     <div className="flex space-x-4">
       <div className="flex-1">
@@ -39,23 +35,20 @@ export const TableSelector = ({
             </SelectTrigger>
             <SelectContent>
               {tables.map((table) => (
-                <SelectItem key={table.id} value={table.id.toString()} className="flex items-center">
-                  Table {table.id} {' '}
-                  <Badge variant={table.status === 'active' ? 'outline' : 'secondary'} className="ml-2">
-                    {table.status}
-                  </Badge>
+                <SelectItem key={table.id} value={table.id.toString()}>
+                  Table {table.id} ({table.status})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button onClick={onTableSelect}>View Table</Button>
-          {selectedTable && selectedTableObj && (
+          {selectedTable && (
             <Button 
-              variant={selectedTableObj.status === 'active' ? 'destructive' : 'default'}
-              onClick={() => onTableStatusToggle(selectedTable)}
-              className="transition-colors"
+              variant="outline"
+              onClick={() => onTableStatusToggle(selectedTable.id)}
+              className={selectedTable.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
             >
-              {selectedTableObj.status === 'active' ? 'Disable' : 'Enable'} Table
+              {selectedTable.status === 'active' ? 'Disable' : 'Enable'} Table
             </Button>
           )}
         </div>

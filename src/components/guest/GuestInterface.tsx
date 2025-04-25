@@ -1,91 +1,80 @@
 
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { TableSelection } from './TableSelection';
+import { useToast } from '@/hooks/use-toast';
+import { BellRing, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
 import { useRealtimeEnabler } from '@/hooks/use-realtime-enabler';
-import { GuestHeader } from './components/GuestHeader';
-import { GuestMain } from './components/GuestMain';
-import { usePromptResponse } from '@/hooks/use-prompt-response';
-import { useAnnouncementDisplay } from '@/hooks/use-announcement-display';
-import { useEffect, useState } from 'react';
-import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
 const GuestInterface = () => {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
-  const { isEnabled: realtimeEnabled } = useRealtimeEnabler();
-  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  const {
-    currentPrompt,
-    setCurrentPrompt,
-    selectedResponse,
-    hasResponded,
-    setHasResponded,
-    lastPromptId,
-    setLastPromptId,
-    handleResponse
-  } = usePromptResponse(user?.tableNumber);
+  useRealtimeEnabler();
   
-  const {
-    showAnnouncement,
-    lastAnnouncement,
-    setLastAnnouncement,
-    setShowAnnouncement,
-    displayAnnouncement
-  } = useAnnouncementDisplay();
+  const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
+  const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
+  const [hasResponded, setHasResponded] = useState(false);
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
-  // Debug logs
   useEffect(() => {
-    console.log("User table number:", user?.tableNumber);
-    console.log("Total tables:", tables.length, tables);
-    console.log("Total active prompts:", prompts.length, prompts);
-    console.log("Realtime enabled:", realtimeEnabled);
-    console.log("Realtime status:", realtimeStatus);
-  }, [user, tables, prompts, realtimeEnabled, realtimeStatus]);
+    console.log('GuestInterface - User:', user);
+    console.log('GuestInterface - Prompts data:', prompts);
+    console.log('GuestInterface - Tables data:', tables);
+  }, [user, prompts, tables]);
 
-  // Initial data load notification
+  const handleManualRefresh = async () => {
+    toast({
+      title: "Refreshing...",
+      description: "Fetching the latest data from the server.",
+    });
+    await refreshData();
+  };
+
   useEffect(() => {
-    if (tables.length > 0 && !isInitialLoadDone) {
-      setIsInitialLoadDone(true);
-      toast({
-        title: "Connected to server",
-        description: "Live updates are now active",
-      });
+    if (!user?.tableNumber) {
+      console.log('No table number assigned to user');
+      return;
     }
-  }, [tables, isInitialLoadDone]);
 
-  // Handle prompts
-  useEffect(() => {
-    if (!user?.tableNumber) return;
-
+    console.log(`Looking for table ${user.tableNumber} in tables:`, tables);
     const userTable = tables.find(t => t.id === user.tableNumber);
-    if (!userTable) return;
+    if (!userTable) {
+      console.log(`Table ${user.tableNumber} not found`);
+      return;
+    }
 
+    console.log('Filtering prompts for table:', user.tableNumber);
     const tablePrompts = prompts.filter(p => 
       p.status === 'active' && 
       (p.target_table === null || p.target_table === user.tableNumber)
     );
-    
+
+    console.log('Active prompts for this table:', tablePrompts);
     if (tablePrompts.length > 0) {
-      const sortedPrompts = [...tablePrompts].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      const latestPrompt = tablePrompts[0];
+      console.log('Setting current prompt to:', latestPrompt);
       
-      const latestPrompt = sortedPrompts[0];
-      
-      if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
-        setCurrentPrompt(latestPrompt);
-        setHasResponded(false);
-        setLastPromptId(latestPrompt.id);
-      }
+      // Always update the current prompt when a new one is found
+      setCurrentPrompt(latestPrompt);
+      setSelectedResponse(null);
+      setHasResponded(false);
     } else {
+      // Only clear the prompt if there are no active prompts
       setCurrentPrompt(null);
-      setLastPromptId(null);
+      setSelectedResponse(null);
+      setHasResponded(false);
     }
   }, [user, tables, prompts]);
 
-  // Handle announcements
   useEffect(() => {
     if (!user?.tableNumber || !announcements.length) return;
 
@@ -94,54 +83,230 @@ const GuestInterface = () => {
     );
 
     if (tableAnnouncements.length > 0) {
-      const sortedAnnouncements = [...tableAnnouncements].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      
-      const latestAnnouncement = sortedAnnouncements[0];
+      const latestAnnouncement = tableAnnouncements[0];
+      console.log('Setting last announcement to:', latestAnnouncement.text);
       
       if (!lastAnnouncement || latestAnnouncement.text !== lastAnnouncement) {
-        displayAnnouncement(latestAnnouncement.text);
+        setLastAnnouncement(latestAnnouncement.text);
+        setShowAnnouncement(true);
+
+        const timer = setTimeout(() => {
+          setShowAnnouncement(false);
+        }, 10000);
+
+        return () => clearTimeout(timer);
       }
     }
-  }, [user, announcements]);
+  }, [user, announcements, lastAnnouncement]);
 
-  // Force refresh data periodically and on mount
-  useEffect(() => {
-    // Initial refresh after a short delay
-    const initialTimer = setTimeout(() => {
-      refreshData();
-    }, 500);
-    
-    // Regular refresh interval - more frequent for improved responsiveness
-    const intervalTimer = setInterval(() => {
-      refreshData();
-    }, 2000); // Reduced to 2 seconds for better responsiveness
-    
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(intervalTimer);
-    };
-  }, [refreshData]);
+  const handleResponse = async (response: ResponseOption) => {
+    if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
 
-  if (!user?.tableNumber) {
-    return <TableSelection />;
-  }
+    try {
+      console.log(`Submitting response ${response} for prompt ${currentPrompt.id}`);
+      
+      const { error } = await supabase
+        .from('announcements')
+        .insert({
+          text: `Response ${response} to prompt ${currentPrompt.id}`,
+          target_table: user.tableNumber
+        });
+
+      if (error) {
+        console.error('Error submitting response:', error);
+        throw error;
+      }
+
+      setSelectedResponse(response);
+      if (response === 'YES' || response === 'NO') {
+        setHasResponded(true);
+      }
+
+      toast({
+        title: "Response Recorded",
+        description: `Your response "${response}" has been submitted.`,
+      });
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit response. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
-      <GuestHeader onRefresh={refreshData} onLogout={logout} />
-      <GuestMain
-        user={user}
-        realtimeStatus={realtimeStatus}
-        onRefresh={refreshData}
-        showAnnouncement={showAnnouncement}
-        lastAnnouncement={lastAnnouncement}
-        currentPrompt={currentPrompt}
-        selectedResponse={selectedResponse}
-        hasResponded={hasResponded}
-        onResponse={handleResponse}
-      />
+      <header className="bg-background p-4 shadow-sm">
+        <div className="container mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="font-bold text-lg">PRS Guest Interface</h1>
+            <p className="text-sm text-muted-foreground">
+              Table {user?.tableNumber}, Seat {user?.seatCode}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleManualRefresh}
+              title="Refresh data"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Refresh data</span>
+            </Button>
+            <Button
+              onClick={logout}
+              className="px-3 py-1 text-sm rounded-md bg-accent hover:bg-accent/80 transition-colors"
+            >
+              Exit
+            </Button>
+          </div>
+        </div>
+      </header>
+      
+      <main className="flex-1 container mx-auto p-6 flex flex-col items-center justify-center">
+        {realtimeStatus !== 'connected' && (
+          <div className="w-full max-w-xl mb-6">
+            <Card className={`border-l-4 ${
+              realtimeStatus === 'connecting' ? 'border-l-amber-500' : 'border-l-red-500'
+            }`}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center">
+                    <div className={`h-2 w-2 rounded-full mr-2 ${
+                      realtimeStatus === 'connecting' ? 'bg-amber-600 animate-pulse' : 'bg-red-600'
+                    }`}></div>
+                    <div>
+                      <h3 className="font-medium">{
+                        realtimeStatus === 'connecting' 
+                          ? 'Connecting to realtime updates...' 
+                          : 'Error connecting to realtime updates'
+                      }</h3>
+                      <p className="text-sm text-muted-foreground">{
+                        realtimeStatus === 'connecting'
+                          ? 'Please wait while we establish a connection.'
+                          : 'Some features may not work properly.'
+                      }</p>
+                    </div>
+                  </div>
+                  {realtimeStatus === 'error' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleManualRefresh}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
+        {showAnnouncement && lastAnnouncement && (
+          <div className="w-full max-w-xl mb-6 animate-fade-in">
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="p-4">
+                <div className="flex items-start">
+                  <BellRing className="h-5 w-5 mr-3 text-primary flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-medium">Announcement</h3>
+                    <p className="text-sm mt-1">{lastAnnouncement}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
+        <div className="w-full max-w-xl">
+          <Card className="mb-6 shadow-md">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold">
+                  {user?.firstName?.charAt(0)}
+                </div>
+                <div>
+                  <h2 className="font-medium text-lg">Welcome, {user?.firstName} {user?.lastName}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    You are seated at Table {user?.tableNumber}, Seat {user?.seatCode}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle>Current Prompt</CardTitle>
+              <CardDescription>
+                Please respond using the buttons below
+              </CardDescription>
+            </CardHeader>
+            
+            <Separator />
+            
+            <CardContent className="p-6">
+              <div className="teleprompter">
+                {currentPrompt ? (
+                  <p>{currentPrompt.text}</p>
+                ) : (
+                  <p className="text-muted-foreground italic">Waiting for prompt...</p>
+                )}
+              </div>
+              
+              <div className="flex justify-center space-x-6 mt-8">
+                <button
+                  className={`response-button yes ${selectedResponse === 'YES' ? 'selected' : ''}`}
+                  onClick={() => handleResponse('YES')}
+                  disabled={!currentPrompt || hasResponded}
+                >
+                  YES
+                </button>
+                
+                <button
+                  className={`response-button no ${selectedResponse === 'NO' ? 'selected' : ''}`}
+                  onClick={() => handleResponse('NO')}
+                  disabled={!currentPrompt || hasResponded}
+                >
+                  NO
+                </button>
+                
+                <button
+                  className={`response-button service ${selectedResponse === 'SERVICE' ? 'selected' : ''}`}
+                  onClick={() => handleResponse('SERVICE')}
+                  disabled={!currentPrompt}
+                >
+                  SERVICE
+                </button>
+              </div>
+              
+              {selectedResponse && (
+                <p className="text-center mt-6 text-sm text-muted-foreground">
+                  {selectedResponse === 'SERVICE' 
+                    ? 'Service request sent!' 
+                    : 'Thank you for your response!'
+                  }
+                </p>
+              )}
+
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
+                  <p>Debug Info:</p>
+                  <p>Prompt Count: {prompts.length}</p>
+                  <p>Current Prompt: {currentPrompt ? `ID: ${currentPrompt.id}, Text: ${currentPrompt.text}` : 'None'}</p>
+                  <p>Realtime Status: {realtimeStatus}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 };

@@ -9,14 +9,12 @@ interface TableManagementSectionProps {
   selectedTable: Table;
   onSeatStatusToggle: (tableId: number, seatCode: string) => void;
   onPlayerDealerQuery: () => void;
-  onRemoveUser?: (tableId: number, seatCode: string) => void;
 }
 
 export const TableManagementSection = ({
   selectedTable,
   onSeatStatusToggle,
   onPlayerDealerQuery,
-  onRemoveUser,
 }: TableManagementSectionProps) => {
   return (
     <Card className="lg:col-span-1">
@@ -35,7 +33,6 @@ export const TableManagementSection = ({
               tableId={selectedTable.id}
               seat={seat}
               onToggleStatus={(seatCode) => onSeatStatusToggle(selectedTable.id, seatCode)}
-              onRemoveUser={onRemoveUser ? (seatCode) => onRemoveUser(selectedTable.id, seatCode) : undefined}
             />
           ))}
           

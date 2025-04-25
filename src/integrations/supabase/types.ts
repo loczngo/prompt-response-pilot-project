@@ -38,36 +38,6 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          created_at: string
-          first_name: string
-          id: string
-          last_name: string | null
-          role: string
-          seat_code: string | null
-          table_number: number | null
-        }
-        Insert: {
-          created_at?: string
-          first_name: string
-          id: string
-          last_name?: string | null
-          role?: string
-          seat_code?: string | null
-          table_number?: number | null
-        }
-        Update: {
-          created_at?: string
-          first_name?: string
-          id?: string
-          last_name?: string | null
-          role?: string
-          seat_code?: string | null
-          table_number?: number | null
-        }
-        Relationships: []
-      }
       prompts: {
         Row: {
           created_at: string | null
