@@ -52,10 +52,10 @@ export const TableSelection = () => {
       if (error) {
         console.error('Error fetching tables:', error);
         
-        // For 403 errors (permission denied), we'll use a fallback approach
-        if (error.code === '42501' || error.status === 403) {
+        // For permission denied errors, we'll use a fallback approach
+        // Check for 403 error using error.code instead of error.status
+        if (error.code === '42501' || error.code === 'PGRST301' || error.message?.includes('permission denied')) {
           console.log('Permission denied for tables, using fallback approach');
-          // The fallback could be polling or other mechanisms
           toast({
             title: "Limited data access",
             description: "Using available data. Some features may be restricted.",
@@ -99,8 +99,9 @@ export const TableSelection = () => {
       if (error) {
         console.error('Error fetching seats:', error);
         
-        // For 403 errors (permission denied), we'll show a user-friendly message
-        if (error.code === '42501' || error.status === 403) {
+        // For permission denied errors, we'll show a user-friendly message
+        // Check for 403 error using error.code instead of error.status
+        if (error.code === '42501' || error.code === 'PGRST301' || error.message?.includes('permission denied')) {
           console.log('Permission denied for seats, using fallback approach');
           toast({
             title: "Limited seat data access",
