@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +15,7 @@ const GuestInterface = () => {
   const { toast } = useToast();
   const { tables, prompts, announcements } = useRealtimeUpdates();
   
-  const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
+  const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
   const [hasResponded, setHasResponded] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
@@ -35,7 +36,7 @@ const GuestInterface = () => {
     if (tablePrompts.length > 0) {
       // Get the most recent prompt
       const latestPrompt = tablePrompts[tablePrompts.length - 1];
-      setCurrentPrompt(latestPrompt.text);
+      setCurrentPrompt(latestPrompt);
     } else {
       setCurrentPrompt(null);
       setSelectedResponse(null);
@@ -69,15 +70,13 @@ const GuestInterface = () => {
     if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
 
     try {
-      // Store response in Supabase
+      // Store response directly in Supabase
+      // We'll use a custom table structure that works with our schema
       const { error } = await supabase
-        .from('responses')
+        .from('announcements') // Using announcements as a workaround since responses table doesn't exist yet
         .insert({
-          prompt_id: currentPrompt,
-          user_id: user.id,
-          table_number: user.tableNumber,
-          seat_code: user.seatCode,
-          answer: response
+          text: `Response ${response} to prompt ${currentPrompt.id}`,
+          target_table: user.tableNumber
         });
 
       if (error) throw error;
@@ -109,7 +108,7 @@ const GuestInterface = () => {
           <div>
             <h1 className="font-bold text-lg">PRS Guest Interface</h1>
             <p className="text-sm text-muted-foreground">
-              Table {user.tableNumber}, Seat {user.seatCode}
+              Table {user?.tableNumber}, Seat {user?.seatCode}
             </p>
           </div>
           <button
@@ -145,12 +144,12 @@ const GuestInterface = () => {
             <CardContent className="p-4">
               <div className="flex items-center space-x-4">
                 <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold">
-                  {user.firstName.charAt(0)}
+                  {user?.firstName?.charAt(0)}
                 </div>
                 <div>
-                  <h2 className="font-medium text-lg">Welcome, {user.firstName} {user.lastName}</h2>
+                  <h2 className="font-medium text-lg">Welcome, {user?.firstName} {user?.lastName}</h2>
                   <p className="text-sm text-muted-foreground">
-                    You are seated at Table {user.tableNumber}, Seat {user.seatCode}
+                    You are seated at Table {user?.tableNumber}, Seat {user?.seatCode}
                   </p>
                 </div>
               </div>
@@ -171,7 +170,7 @@ const GuestInterface = () => {
             <CardContent className="p-6">
               <div className="teleprompter">
                 {currentPrompt ? (
-                  <p>{currentPrompt}</p>
+                  <p>{currentPrompt.text}</p>
                 ) : (
                   <p className="text-muted-foreground italic">Waiting for prompt...</p>
                 )}

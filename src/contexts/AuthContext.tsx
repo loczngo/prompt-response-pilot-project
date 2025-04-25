@@ -18,7 +18,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
@@ -27,7 +27,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check for saved authentication in session storage
     const savedUser = sessionStorage.getItem('prs_auth_user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        console.error('Error parsing saved user:', error);
+        sessionStorage.removeItem('prs_auth_user');
+      }
     }
     setIsLoading(false);
   }, []);

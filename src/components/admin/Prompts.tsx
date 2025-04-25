@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { PromptCard } from './prompts/PromptCard';
 import { PromptDialog } from './prompts/PromptDialog';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const Prompts = () => {
   const [showAddPrompt, setShowAddPrompt] = useState(false);
@@ -21,6 +23,7 @@ const Prompts = () => {
     user?.tableNumber
   );
   const { prompts: realTimePrompts } = useRealtimeUpdates();
+  const { toast } = useToast();
   
   // Use realTimePrompts instead of getPrompts()
   const prompts = realTimePrompts;
