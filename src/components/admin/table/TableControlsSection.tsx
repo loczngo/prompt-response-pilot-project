@@ -9,6 +9,7 @@ import { MessageSquare } from 'lucide-react';
 import { useSharedState } from '@/hooks/use-shared-state';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { SupabasePrompt, convertSupabasePromptToPrompt } from '@/types/table';
 
 interface TableControlsSectionProps {
   selectedTable: Table;
@@ -45,7 +46,9 @@ export const TableControlsSection = ({
         }
 
         if (prompts) {
-          setActivePrompts(prompts);
+          // Convert the Supabase prompts to local Prompt type
+          const convertedPrompts = prompts.map(convertSupabasePromptToPrompt);
+          setActivePrompts(convertedPrompts);
           
           // Update current prompt text if table has a prompt assigned
           if (selectedTable.currentPromptId) {
@@ -72,10 +75,13 @@ export const TableControlsSection = ({
     if (!selectedTable || !selectedPromptId) return;
     
     try {
-      // Update the table in Supabase
+      // Update the table in Supabase with the current prompt ID
       const { error } = await supabase
         .from('tables')
-        .update({ current_prompt_id: selectedPromptId })
+        .update({ 
+          status: selectedTable.status,  // Keep existing status
+          current_prompt_id: selectedPromptId  // Add the current_prompt_id
+        })
         .eq('id', selectedTable.id);
         
       if (error) {

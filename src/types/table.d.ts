@@ -44,3 +44,15 @@ export interface SupabaseAnnouncement {
   target_table: number | null;
   created_at?: string;
 }
+
+// Helper function to convert Supabase types to local types
+export function convertSupabasePromptToPrompt(supabasePrompt: SupabasePrompt): Prompt {
+  return {
+    id: supabasePrompt.id,
+    text: supabasePrompt.text,
+    targetTable: supabasePrompt.target_table,
+    status: supabasePrompt.status,
+    createdAt: supabasePrompt.created_at
+  };
+}
+
