@@ -51,6 +51,7 @@ export const useSupabaseDebug = () => {
       }
     };
     
+    // Run check but don't block rendering with await
     checkConnection();
     
     // Also listen for auth changes
