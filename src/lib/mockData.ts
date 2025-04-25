@@ -1,4 +1,3 @@
-
 import { User, Seat, Prompt, Response, Table, Announcement } from '@/types/models';
 
 export const users: User[] = [

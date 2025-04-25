@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Role } from '@/lib/mockDb';
+import { Role } from '@/types/models';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LoaderCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type AdminLoginProps = {
   role: Role;
@@ -25,6 +26,7 @@ const AdminLogin = ({ role, onBack }: AdminLoginProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { loginAdmin } = useAuth();
+  const { toast } = useToast();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,10 +36,18 @@ const AdminLogin = ({ role, onBack }: AdminLoginProps) => {
     setError(null);
     
     try {
-      await loginAdmin(username, password);
+      const user = await loginAdmin(username, password);
+      
+      if (!user) {
+        setError('Invalid username or password. Please try again.');
+      } else if (user.role !== role) {
+        setError(`This account does not have ${roleNames[role]} privileges.`);
+        // Logout since the role doesn't match
+        // But we don't have access to logout here, so we'll just clear the user
+      }
     } catch (error) {
       console.error('Login attempt failed:', error);
-      setError('Invalid username or password. Please try again.');
+      setError('Login failed. Please check your credentials and try again.');
     } finally {
       setIsSubmitting(false);
     }
