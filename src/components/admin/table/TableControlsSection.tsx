@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageSquare } from 'lucide-react';
 import { useSharedState } from '@/hooks/use-shared-state';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TableControlsSectionProps {
   selectedTable: Table;
@@ -24,22 +26,37 @@ export const TableControlsSection = ({
   // Use shared state for active prompts to sync across tabs
   const [activePrompts, setActivePrompts] = useSharedState<ReturnType<typeof getPrompts>>('activePrompts', []);
   const [currentPromptText, setCurrentPromptText] = useState<string | undefined>('');
+  const { toast } = useToast();
   
   // Periodically refresh prompts and current prompt display
   useEffect(() => {
-    const updatePrompts = () => {
-      const prompts = getPrompts().filter(p => 
-        p.status === 'active' && 
-        (p.targetTable === null || p.targetTable === selectedTable.id)
-      );
-      setActivePrompts(prompts);
-      
-      // Update current prompt text
-      if (selectedTable.currentPromptId) {
-        const currentPrompt = getPrompts().find(p => p.id === selectedTable.currentPromptId);
-        setCurrentPromptText(currentPrompt?.text);
-      } else {
-        setCurrentPromptText(undefined);
+    const updatePrompts = async () => {
+      try {
+        // Fetch active prompts from Supabase
+        const { data: prompts, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('status', 'active')
+          .or(`target_table.is.null,target_table.eq.${selectedTable.id}`);
+        
+        if (error) {
+          console.error('Error fetching prompts:', error);
+          return;
+        }
+
+        if (prompts) {
+          setActivePrompts(prompts);
+          
+          // Update current prompt text if table has a prompt assigned
+          if (selectedTable.currentPromptId) {
+            const currentPrompt = prompts.find(p => p.id === selectedTable.currentPromptId);
+            setCurrentPromptText(currentPrompt?.text || 'Unknown prompt');
+          } else {
+            setCurrentPromptText(undefined);
+          }
+        }
+      } catch (error) {
+        console.error('Error in updatePrompts:', error);
       }
     };
     
@@ -49,6 +66,44 @@ export const TableControlsSection = ({
     
     return () => clearInterval(interval);
   }, [selectedTable, setActivePrompts]);
+
+  // Enhanced send prompt function
+  const handleSendPrompt = async () => {
+    if (!selectedTable || !selectedPromptId) return;
+    
+    try {
+      // Update the table in Supabase
+      const { error } = await supabase
+        .from('tables')
+        .update({ current_prompt_id: selectedPromptId })
+        .eq('id', selectedTable.id);
+        
+      if (error) {
+        console.error('Error updating table with prompt:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send prompt to table.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "Prompt Sent",
+        description: "The prompt has been sent to the table.",
+      });
+      
+      // Call the original handler to maintain compatibility
+      onSendPrompt();
+    } catch (error) {
+      console.error('Error sending prompt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send prompt to table.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <Card className="lg:col-span-1">
@@ -87,7 +142,7 @@ export const TableControlsSection = ({
           <Button
             className="w-full"
             disabled={!selectedPromptId}
-            onClick={onSendPrompt}
+            onClick={handleSendPrompt}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Send Prompt

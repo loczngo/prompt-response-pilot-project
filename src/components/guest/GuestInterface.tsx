@@ -26,6 +26,7 @@ const GuestInterface = () => {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
+  // This effect monitors tables for prompt changes
   useEffect(() => {
     if (!user?.tableNumber) {
       console.log('No table number assigned to user');
@@ -34,11 +35,36 @@ const GuestInterface = () => {
 
     console.log(`Looking for table ${user.tableNumber} in tables:`, tables);
     const userTable = tables.find(t => t.id === user.tableNumber);
+    
     if (!userTable) {
       console.log(`Table ${user.tableNumber} not found`);
       return;
     }
 
+    // If the table has a current prompt, find it in our prompts array
+    if (userTable.currentPromptId) {
+      console.log(`Table ${user.tableNumber} has current prompt ID: ${userTable.currentPromptId}`);
+      
+      const tablePrompt = prompts.find(p => p.id === userTable.currentPromptId);
+      
+      if (tablePrompt) {
+        console.log('Setting current prompt to:', tablePrompt);
+        setCurrentPrompt(tablePrompt);
+        setSelectedResponse(null);
+        setHasResponded(false);
+      } else {
+        console.log(`Prompt ${userTable.currentPromptId} not found in prompts array`);
+      }
+    } else {
+      // Reset current prompt if table has no assigned prompt
+      setCurrentPrompt(null);
+    }
+  }, [user, tables, prompts]);
+
+  // This effect specifically looks for active prompts that target the user's table
+  useEffect(() => {
+    if (!user?.tableNumber) return;
+    
     console.log('Filtering prompts for table:', user.tableNumber);
     const tablePrompts = prompts.filter(p => 
       p.status === 'active' && 
@@ -46,19 +72,22 @@ const GuestInterface = () => {
     );
 
     console.log('Active prompts for this table:', tablePrompts);
+    
     if (tablePrompts.length > 0) {
-      const latestPrompt = tablePrompts[0];
-      console.log('Setting current prompt to:', latestPrompt);
+      // Sort by creation date to get the latest prompt
+      const latestPrompt = tablePrompts.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0];
       
-      setCurrentPrompt(latestPrompt);
-      setSelectedResponse(null);
-      setHasResponded(false);
-    } else {
-      setCurrentPrompt(null);
-      setSelectedResponse(null);
-      setHasResponded(false);
+      // Only update if this is a different prompt or no prompt is currently displayed
+      if (!currentPrompt || latestPrompt.id !== currentPrompt.id) {
+        console.log('Setting new latest prompt:', latestPrompt);
+        setCurrentPrompt(latestPrompt);
+        setSelectedResponse(null);
+        setHasResponded(false);
+      }
     }
-  }, [user, tables, prompts]);
+  }, [user, prompts, currentPrompt]);
 
   useEffect(() => {
     if (!user?.tableNumber || !announcements.length) return;
