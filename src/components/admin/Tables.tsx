@@ -25,14 +25,17 @@ const Tables = () => {
   const { user: currentUser } = useAuth();
   
   const {
-    tables: realtimeTables,
+    tables,
+    allTables,
     tableNumber,
     selectedTable,
     setTableNumber,
     handleRefresh,
     handleTableSelect,
     handleTableStatusToggle,
-    handleSeatStatusToggle
+    handleSeatStatusToggle,
+    removeUserFromSeat,
+    fetchAllTables
   } = useTableManagement(currentUser?.role === 'table-admin' ? currentUser.tableNumber?.toString() : undefined);
 
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'table-admin') {
@@ -71,29 +74,52 @@ const Tables = () => {
     });
   };
 
-  const handleCreateTable = (seats: number) => {
-    const tables = getTables();
-    const newTableId = Math.max(...tables.map(t => t.id), 0) + 1;
-    
-    const newTable: Table = {
-      id: newTableId,
-      status: 'active',
-      seats: Array.from({ length: seats }, (_, i) => ({
+  const handleCreateTable = async (seats: number) => {
+    try {
+      // Create a new table in Supabase
+      const { data: newTableData, error: tableError } = await supabase
+        .from('tables')
+        .insert({ status: 'active' })
+        .select()
+        .single();
+      
+      if (tableError) {
+        throw tableError;
+      }
+      
+      // Create seats for the new table
+      const seatsToInsert = Array.from({ length: seats }, (_, i) => ({
+        table_id: newTableData.id,
         code: String.fromCharCode(65 + i), // A, B, C, etc.
         status: 'active',
-        isDealer: false
-      }))
-    };
-
-    localStorage.setItem('prs_tables', JSON.stringify([...tables, newTable]));
-    
-    handleRefresh();
-    setShowCreateTableDialog(false);
-    
-    toast({
-      title: "Table Created",
-      description: `Table ${newTableId} has been created with ${seats} seats.`,
-    });
+        is_dealer: false
+      }));
+      
+      const { error: seatsError } = await supabase
+        .from('seats')
+        .insert(seatsToInsert);
+      
+      if (seatsError) {
+        throw seatsError;
+      }
+      
+      // Refresh the tables data
+      fetchAllTables();
+      handleRefresh();
+      setShowCreateTableDialog(false);
+      
+      toast({
+        title: "Table Created",
+        description: `Table ${newTableData.id} has been created with ${seats} seats.`,
+      });
+    } catch (error: any) {
+      console.error('Error creating table:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create table",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteResponse = (responseId: string) => {
@@ -105,6 +131,10 @@ const Tables = () => {
       });
       handleRefresh();
     }
+  };
+
+  const handleRemoveUser = (tableId: number, seatCode: string) => {
+    removeUserFromSeat(tableId.toString(), seatCode);
   };
 
   if (isTableAdminWithoutTable) {
@@ -138,6 +168,8 @@ const Tables = () => {
     }
   };
 
+  const displayTables = showTableSelector ? allTables || [] : tables || [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,7 +189,7 @@ const Tables = () => {
 
       {showTableSelector && (
         <TableSelector
-          tables={realtimeTables as Table[]}
+          tables={displayTables as Table[]}
           tableNumber={tableNumber}
           selectedTable={selectedTable}
           onTableNumberChange={setTableNumber}
@@ -172,6 +204,7 @@ const Tables = () => {
             selectedTable={selectedTableObj}
             onSeatStatusToggle={(_, seatCode) => handleSeatStatusToggle(selectedTable, seatCode)}
             onPlayerDealerQuery={() => setShowPlayerDealerDialog(true)}
+            onRemoveUser={handleRemoveUser}
           />
           
           <TableControlsSection

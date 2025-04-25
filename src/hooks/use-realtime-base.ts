@@ -20,6 +20,7 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
   const { toast } = useToast();
   
   const isGuestUser = user?.role === 'guest';
+  const isAdmin = user?.role === 'super-admin' || user?.role === 'table-admin';
 
   const fetchData = async () => {
     console.log(`Fetching ${tableName}...`);
@@ -27,34 +28,32 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
     setHasAttemptedFetch(true);
     
     try {
-      // We need to cast tableName to any to avoid type issues with Supabase client
-      const { data: fetchedData, error } = await supabase
-        .from(tableName as any)
-        .select('*')
-        .eq('status', 'active');
+      let query = supabase.from(tableName as any).select('*');
+      
+      // Only filter by active status for non-admin users or for tables other than 'tables'
+      if (!isAdmin || tableName !== 'tables') {
+        query = query.eq('status', 'active');
+      }
+
+      const { data: fetchedData, error } = await query;
 
       if (error) {
         console.error(`Error fetching ${tableName}:`, error);
-        if (error.code === '42501' || error.code === 'PGRST301' || error.message?.includes('permission denied')) {
-          console.log(`Permission denied for ${tableName}, using fallback approach`);
-          const cachedData = localStorage.getItem(`cached_${cacheKey}`);
-          if (cachedData) {
-            setData(JSON.parse(cachedData) as T[]);
-          }
-          toast({
-            title: "Using cached data",
-            description: "Limited connectivity to server. Using available data.",
-            variant: "default"
-          });
+        // Try loading from cache if available
+        const cachedData = localStorage.getItem(`cached_${cacheKey}`);
+        if (cachedData) {
+          console.log(`Using cached data for ${tableName}`);
+          setData(JSON.parse(cachedData) as T[]);
         } else {
           toast({
-            title: `Error fetching ${tableName}`,
-            description: "Please try refreshing the data",
+            title: `Error loading ${tableName}`,
+            description: "Please try refreshing the page",
             variant: "destructive"
           });
         }
       } else if (fetchedData && Array.isArray(fetchedData)) {
-        // Convert the returned data to the expected type using double casting to avoid type errors
+        console.log(`Successfully fetched ${fetchedData.length} ${tableName}`);
+        // Convert the returned data to the expected type
         setData(fetchedData as unknown as T[]);
         localStorage.setItem(`cached_${cacheKey}`, JSON.stringify(fetchedData));
       }
@@ -66,7 +65,7 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
   };
 
   const handleRefresh = async () => {
-    if (refreshing) return;
+    if (refreshing) return Promise.resolve();
     setRefreshing(true);
     try {
       await fetchData();
@@ -79,6 +78,7 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
     } finally {
       setRefreshing(false);
     }
+    return Promise.resolve();
   };
 
   useEffect(() => {
@@ -94,11 +94,14 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: tableName as any },
-          () => {
-            setTimeout(() => fetchData(), 1000);
+          (payload) => {
+            console.log(`Realtime update for ${tableName}:`, payload);
+            setTimeout(() => fetchData(), 500);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`Realtime subscription status for ${tableName}: ${status}`);
+        });
     } catch (err) {
       console.error(`Error setting up realtime for ${tableName}:`, err);
     }

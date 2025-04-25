@@ -3,6 +3,7 @@ import { Table } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 interface TableSelectorProps {
   tables: Table[];
@@ -38,8 +39,11 @@ export const TableSelector = ({
             </SelectTrigger>
             <SelectContent>
               {tables.map((table) => (
-                <SelectItem key={table.id} value={table.id.toString()}>
-                  Table {table.id} ({table.status})
+                <SelectItem key={table.id} value={table.id.toString()} className="flex items-center">
+                  Table {table.id} {' '}
+                  <Badge variant={table.status === 'active' ? 'outline' : 'secondary'} className="ml-2">
+                    {table.status}
+                  </Badge>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -47,9 +51,9 @@ export const TableSelector = ({
           <Button onClick={onTableSelect}>View Table</Button>
           {selectedTable && selectedTableObj && (
             <Button 
-              variant="outline"
+              variant={selectedTableObj.status === 'active' ? 'destructive' : 'default'}
               onClick={() => onTableStatusToggle(selectedTable)}
-              className={selectedTableObj.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
+              className="transition-colors"
             >
               {selectedTableObj.status === 'active' ? 'Disable' : 'Enable'} Table
             </Button>
