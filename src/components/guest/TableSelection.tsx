@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export const TableSelection = () => {
   const [tables, setTables] = useState<any[]>([]);
@@ -58,7 +59,7 @@ export const TableSelection = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
-        (payload) => {
+        (payload: any) => {
           console.log('Table change detected:', payload);
           fetchTables();
         }
@@ -115,10 +116,14 @@ export const TableSelection = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'seats' },
-        (payload) => {
+        (payload: any) => {
           console.log('Seat change detected:', payload);
           // Only refetch if it's related to the selected table
-          if (selectedTable && payload.new && payload.new.table_id === parseInt(selectedTable, 10)) {
+          if (selectedTable && 
+              payload.new && 
+              typeof payload.new === 'object' && 
+              'table_id' in payload.new && 
+              payload.new.table_id === parseInt(selectedTable, 10)) {
             fetchSeats();
           }
         }
