@@ -29,7 +29,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedUser = sessionStorage.getItem('prs_auth_user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        // Only restore user if they have a role
+        if (parsedUser && parsedUser.role) {
+          setUser(parsedUser);
+        } else {
+          // Clear invalid user data
+          console.log("Found invalid user data, clearing session");
+          sessionStorage.removeItem('prs_auth_user');
+        }
       } catch (error) {
         console.error('Error parsing saved user:', error);
         sessionStorage.removeItem('prs_auth_user');

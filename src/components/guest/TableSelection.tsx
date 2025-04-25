@@ -16,12 +16,17 @@ export const TableSelection = () => {
   const [selectedSeat, setSelectedSeat] = useState<string>('');
   const [availableSeats, setAvailableSeats] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Fetch tables with real-time updates
   useEffect(() => {
+    setLoadingData(true);
+    
     const fetchTables = async () => {
+      console.log('Fetching tables...');
       const { data, error } = await supabase
         .from('tables')
         .select('*')
@@ -29,22 +34,52 @@ export const TableSelection = () => {
 
       if (error) {
         console.error('Error fetching tables:', error);
+        toast({
+          title: "Error fetching tables",
+          description: "Please try again or contact support",
+          variant: "destructive"
+        });
         return;
       }
 
-      setTables(data || []);
+      console.log('Tables fetched:', data);
+      if (data) {
+        setTables(data);
+        setLoadingData(false);
+      }
     };
 
+    // Initial fetch
     fetchTables();
-    const interval = setInterval(fetchTables, 5000);
 
-    return () => clearInterval(interval);
-  }, []);
+    // Set up real-time subscription for table updates
+    const channel = supabase
+      .channel('table-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tables' },
+        (payload) => {
+          console.log('Table change detected:', payload);
+          fetchTables();
+        }
+      )
+      .subscribe();
 
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
+
+  // Fetch seats when a table is selected
   useEffect(() => {
-    const fetchSeats = async () => {
-      if (!selectedTable) return;
+    if (!selectedTable) {
+      setAvailableSeats([]);
+      return;
+    }
 
+    const fetchSeats = async () => {
+      setLoadingData(true);
+      console.log('Fetching seats for table:', selectedTable);
       const tableId = parseInt(selectedTable, 10);
 
       const { data, error } = await supabase
@@ -56,14 +91,44 @@ export const TableSelection = () => {
 
       if (error) {
         console.error('Error fetching seats:', error);
+        toast({
+          title: "Error fetching available seats",
+          description: "Please try again or select a different table",
+          variant: "destructive"
+        });
         return;
       }
 
-      setAvailableSeats(data?.map(seat => seat.code) || []);
+      console.log('Seats fetched:', data);
+      if (data) {
+        setAvailableSeats(data?.map(seat => seat.code) || []);
+        setLoadingData(false);
+      }
     };
 
+    // Fetch seats when table selection changes
     fetchSeats();
-  }, [selectedTable]);
+
+    // Set up real-time subscription for seat updates
+    const channel = supabase
+      .channel('seat-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'seats' },
+        (payload) => {
+          console.log('Seat change detected:', payload);
+          // Only refetch if it's related to the selected table
+          if (selectedTable && payload.new && payload.new.table_id === parseInt(selectedTable, 10)) {
+            fetchSeats();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedTable, toast]);
 
   const handleJoinTable = async () => {
     if (!selectedTable || !selectedSeat || !user) return;
@@ -136,16 +201,21 @@ export const TableSelection = () => {
             <Select
               value={selectedTable}
               onValueChange={setSelectedTable}
+              disabled={loadingData || tables.length === 0}
             >
               <SelectTrigger id="table">
-                <SelectValue placeholder="Select a table" />
+                <SelectValue placeholder={loadingData ? "Loading tables..." : "Select a table"} />
               </SelectTrigger>
               <SelectContent>
-                {tables.map((table) => (
-                  <SelectItem key={table.id} value={table.id.toString()}>
-                    Table {table.id}
-                  </SelectItem>
-                ))}
+                {tables.length === 0 && !loadingData ? (
+                  <SelectItem value="no-tables" disabled>No tables available</SelectItem>
+                ) : (
+                  tables.map((table) => (
+                    <SelectItem key={table.id} value={table.id.toString()}>
+                      Table {table.id}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -155,17 +225,28 @@ export const TableSelection = () => {
             <Select
               value={selectedSeat}
               onValueChange={setSelectedSeat}
-              disabled={!selectedTable || availableSeats.length === 0}
+              disabled={!selectedTable || loadingData || availableSeats.length === 0}
             >
               <SelectTrigger id="seat">
-                <SelectValue placeholder="Select a seat" />
+                <SelectValue 
+                  placeholder={
+                    !selectedTable ? "Select a table first" : 
+                    loadingData ? "Loading seats..." : 
+                    availableSeats.length === 0 ? "No seats available" : 
+                    "Select a seat"
+                  } 
+                />
               </SelectTrigger>
               <SelectContent>
-                {availableSeats.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    Seat {code}
-                  </SelectItem>
-                ))}
+                {availableSeats.length === 0 && selectedTable && !loadingData ? (
+                  <SelectItem value="no-seats" disabled>No available seats</SelectItem>
+                ) : (
+                  availableSeats.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      Seat {code}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -175,7 +256,7 @@ export const TableSelection = () => {
           <Button
             className="w-full"
             onClick={handleJoinTable}
-            disabled={!selectedTable || !selectedSeat || loading}
+            disabled={!selectedTable || !selectedSeat || loading || loadingData}
           >
             {loading ? 'Joining...' : 'Join Table'}
           </Button>
@@ -184,4 +265,3 @@ export const TableSelection = () => {
     </div>
   );
 };
-
