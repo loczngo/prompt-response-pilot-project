@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Table, Seat } from '@/lib/mockDb';
+import { Table } from '@/types/table';
 import { useSharedState } from '@/hooks/use-shared-state';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,10 +13,12 @@ export const useTableManagement = (userTableNumber?: number) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState(0);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Function to fetch tables from Supabase
-  const fetchTables = useCallback(async () => {
+  const fetchTables = useCallback(async (showToastOnError = true) => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       console.log('Fetching tables from Supabase...');
       const { data: tablesData, error } = await supabase
@@ -26,11 +28,15 @@ export const useTableManagement = (userTableNumber?: number) => {
       
       if (error) {
         console.error('Error fetching tables:', error);
-        toast({
-          title: "Error Fetching Tables",
-          description: "Could not retrieve tables. Please try again later.",
-          variant: "destructive",
-        });
+        setFetchError(error.message);
+        if (showToastOnError) {
+          toast({
+            title: "Error Fetching Tables",
+            description: "Could not retrieve tables. Please try again later.",
+            variant: "destructive",
+          });
+        }
+        return false;
       } else if (tablesData) {
         console.log(`Retrieved ${tablesData.length} tables from database:`, tablesData);
         
@@ -46,14 +52,25 @@ export const useTableManagement = (userTableNumber?: number) => {
             dealerHandsLeft: undefined
           })),
           // Use type assertion to safely access the current_prompt_id
-          currentPromptId: (table as any).current_prompt_id || undefined
+          currentPromptId: table.current_prompt_id || undefined
         }));
         
         setTables(typedTables);
         setLastFetched(Date.now());
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Exception while fetching tables:', error);
+      setFetchError(error instanceof Error ? error.message : 'Unknown error');
+      if (showToastOnError) {
+        toast({
+          title: "Error Fetching Tables",
+          description: "Could not retrieve tables. Please try again later.",
+          variant: "destructive",
+        });
+      }
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +80,7 @@ export const useTableManagement = (userTableNumber?: number) => {
   useEffect(() => {
     if (userTableNumber) {
       setTableNumber(userTableNumber.toString());
-      fetchTables().then(() => {
+      fetchTables(false).then(() => {
         // Find this table in our data
         const table = tables.find(t => t.id === userTableNumber);
         if (table) {
@@ -75,27 +92,32 @@ export const useTableManagement = (userTableNumber?: number) => {
 
   // Initial data fetch
   useEffect(() => {
-    fetchTables();
+    // Initial fetch
+    fetchTables(false);
     
-    // Setup polling as backup for realtime updates
+    // Setup aggressive polling as backup for realtime updates
+    // This ensures data is always available even if realtime fails
     const pollingInterval = setInterval(() => {
-      fetchTables();
-    }, 30000); // Poll every 30 seconds as a fallback
+      fetchTables(false);
+    }, 10000); // Poll every 10 seconds as a fallback
     
     return () => clearInterval(pollingInterval);
   }, [fetchTables]);
 
-  // Setup realtime subscription for tables
+  // Setup realtime subscription for tables with automatic reconnection
   useEffect(() => {
     console.log('Setting up realtime subscription for tables and seats');
     
-    const channel = supabase.channel('table-updates')
+    // Create a unique channel name to avoid conflicts
+    const channelName = `table-updates-${Math.random().toString(36).substring(2, 9)}`;
+    
+    const channel = supabase.channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
         (payload) => {
           console.log('Table change detected, refreshing data:', payload);
-          fetchTables();
+          fetchTables(false);
         }
       )
       .on(
@@ -103,11 +125,11 @@ export const useTableManagement = (userTableNumber?: number) => {
         { event: '*', schema: 'public', table: 'seats' },
         (payload) => {
           console.log('Seat change detected, refreshing data:', payload);
-          fetchTables();
+          fetchTables(false);
         }
       )
       .subscribe((status) => {
-        console.log('Realtime channel status:', status);
+        console.log(`Realtime channel ${channelName} status:`, status);
       });
 
     return () => {
@@ -116,12 +138,10 @@ export const useTableManagement = (userTableNumber?: number) => {
     };
   }, [fetchTables]);
 
-  const refreshTables = () => {
-    // Only fetch if last fetch was more than 2 seconds ago to prevent hammering the API
-    if (Date.now() - lastFetched > 2000) {
-      fetchTables();
-    }
-  };
+  const refreshTables = useCallback(() => {
+    // Always fetch when manually requested
+    fetchTables(true);
+  }, [fetchTables]);
 
   const handleTableSelect = () => {
     if (!tableNumber) {
@@ -214,6 +234,7 @@ export const useTableManagement = (userTableNumber?: number) => {
     tableNumber,
     selectedTable,
     isLoading,
+    fetchError,
     setTableNumber,
     refreshTables,
     handleTableSelect,
