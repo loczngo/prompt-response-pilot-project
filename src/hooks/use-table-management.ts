@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Table } from '@/types/table';
+import { Table, SupabaseTable } from '@/types/table';
 import { useSharedState } from '@/hooks/use-shared-state';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,19 +41,23 @@ export const useTableManagement = (userTableNumber?: number) => {
         console.log(`Retrieved ${tablesData.length} tables from database:`, tablesData);
         
         // Transform and validate the data to match our Table type
-        const typedTables: Table[] = tablesData.map(table => ({
-          id: table.id,
-          status: table.status === 'active' ? 'active' : 'inactive',
-          seats: (table.seats || []).map(seat => ({
-            code: seat.code,
-            userId: seat.user_id || undefined,
-            status: seat.status === 'active' ? 'active' : 'inactive',
-            isDealer: seat.is_dealer || false,
-            dealerHandsLeft: undefined
-          })),
-          // Use type assertion to safely access the current_prompt_id
-          currentPromptId: table.current_prompt_id || undefined
-        }));
+        const typedTables: Table[] = tablesData.map(table => {
+          // Type assertion to access current_prompt_id
+          const supabaseTable = table as SupabaseTable;
+          return {
+            id: table.id,
+            status: table.status === 'active' ? 'active' : 'inactive',
+            seats: (table.seats || []).map(seat => ({
+              code: seat.code,
+              userId: seat.user_id || undefined,
+              status: seat.status === 'active' ? 'active' : 'inactive',
+              isDealer: seat.is_dealer || false,
+              dealerHandsLeft: undefined
+            })),
+            // Access the current_prompt_id from the supabaseTable type
+            currentPromptId: supabaseTable.current_prompt_id || undefined
+          };
+        });
         
         setTables(typedTables);
         setLastFetched(Date.now());

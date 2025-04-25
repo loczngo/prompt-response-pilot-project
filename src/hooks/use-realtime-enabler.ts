@@ -47,6 +47,7 @@ export const useRealtimeEnabler = () => {
           }
         });
 
+      // Return cleanup function instead of Promise
       return () => {
         console.log(`Cleaning up realtime connection: ${channelId}`);
         supabase.removeChannel(channel);
@@ -59,12 +60,20 @@ export const useRealtimeEnabler = () => {
         description: "Unable to establish realtime updates. Some features may not update automatically.",
         variant: "destructive"
       });
+      // Return empty cleanup function when there's an error
+      return () => {};
     }
   }, [toast]);
 
   // Set up automatic reconnection with exponential backoff
   useEffect(() => {
     let cleanup = connectRealtime();
+    let cleanupFn: () => void;
+    
+    // Handle the Promise returned by connectRealtime
+    cleanup.then(cleanupFunction => {
+      cleanupFn = cleanupFunction;
+    });
     
     // If we're not enabled and haven't exceeded max attempts, try reconnecting
     const maxAttempts = 3;
@@ -76,14 +85,17 @@ export const useRealtimeEnabler = () => {
       
       reconnectTimer = window.setTimeout(() => {
         setConnectionAttempts(prev => prev + 1);
-        if (cleanup) cleanup();
-        cleanup = connectRealtime();
+        // Handle the Promise correctly
+        if (cleanupFn) cleanupFn();
+        connectRealtime().then(newCleanupFn => {
+          cleanupFn = newCleanupFn;
+        });
       }, delay);
     }
     
     return () => {
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (cleanup) cleanup();
+      if (cleanupFn) cleanupFn();
     };
   }, [connectRealtime, isEnabled, connectionAttempts]);
 

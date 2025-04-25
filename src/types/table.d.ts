@@ -16,11 +16,12 @@ export interface TableManagementHook {
   handleSeatStatusToggle: (tableId: number, seatCode: string) => void;
 }
 
-// Update the Table interface to include currentPromptId
+// Update the SupabaseTable interface to include current_prompt_id
 export interface SupabaseTable {
   id: number;
   status: string;
   current_prompt_id?: string;
+  created_at?: string;
   seats: SupabaseSeat[];
 }
 
