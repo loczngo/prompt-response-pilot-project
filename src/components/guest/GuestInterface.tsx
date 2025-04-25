@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,12 +63,12 @@ const GuestInterface = () => {
       const latestPrompt = tablePrompts[0];
       console.log('Setting current prompt to:', latestPrompt);
       
-      if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
-        setCurrentPrompt(latestPrompt);
-        setSelectedResponse(null);
-        setHasResponded(false);
-      }
+      // Always update the current prompt when a new one is found
+      setCurrentPrompt(latestPrompt);
+      setSelectedResponse(null);
+      setHasResponded(false);
     } else {
+      // Only clear the prompt if there are no active prompts
       setCurrentPrompt(null);
       setSelectedResponse(null);
       setHasResponded(false);
