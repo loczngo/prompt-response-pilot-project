@@ -1,3 +1,4 @@
+
 import { User, Seat, Prompt, Response, Table, Announcement } from '@/types/models';
 
 export const users: User[] = [
@@ -52,16 +53,16 @@ export const seats: Seat[] = [
   {
     id: 1,
     tableId: 1,
-    code: 'A1',
+    code: 'A',
     status: 'available',
-    userId: null,
+    userId: undefined,
     isDealer: false,
     dealerHandsLeft: 0
   },
   {
     id: 2,
     tableId: 1,
-    code: 'B1',
+    code: 'B',
     status: 'occupied',
     userId: 'user-3',
     isDealer: false,
@@ -70,18 +71,18 @@ export const seats: Seat[] = [
   {
     id: 3,
     tableId: 2,
-    code: 'A1',
+    code: 'A',
     status: 'available',
-    userId: null,
+    userId: undefined,
     isDealer: false,
     dealerHandsLeft: 0
   },
   {
     id: 4,
     tableId: 2,
-    code: 'B1',
+    code: 'B',
     status: 'unavailable',
-    userId: null,
+    userId: undefined,
     isDealer: true,
     dealerHandsLeft: 10
   }
@@ -111,7 +112,7 @@ export const responses: Response[] = [
     userId: 'user-1',
     tableId: 1,
     tableNumber: 1,
-    seatCode: 'A1',
+    seatCode: 'A',
     response: 'YES',
     answer: 'YES',
     createdAt: '2023-04-01T12:00:00Z',
@@ -123,7 +124,7 @@ export const responses: Response[] = [
     userId: 'user-2',
     tableId: 1,
     tableNumber: 1,
-    seatCode: 'B1',
+    seatCode: 'B',
     response: 'NO',
     answer: 'NO',
     createdAt: '2023-04-01T12:01:00Z',
@@ -135,7 +136,7 @@ export const responses: Response[] = [
     userId: 'user-3',
     tableId: 2,
     tableNumber: 2,
-    seatCode: 'A1',
+    seatCode: 'A',
     response: 'SERVICE',
     answer: 'SERVICE',
     createdAt: '2023-04-01T12:02:00Z',

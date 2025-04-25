@@ -53,7 +53,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         const tables = getTables();
         const selectedTable = tables.find(t => t.id === parseInt(tableNumber));
         const seats = selectedTable?.seats
-          .filter(seat => seat.status === 'active' && !seat.userId)
+          .filter(seat => seat.status === 'available' && !seat.userId)
           .map(seat => seat.code) || [];
         
         setAvailableSeats(seats);
@@ -111,8 +111,8 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
       
-      // Use the loginGuest method
-      await loginGuest(firstName, parseInt(tableNumber), seatCode);
+      // Use the loginGuest method with proper arguments
+      await loginGuest(parseInt(tableNumber), seatCode);
       
       toast({
         title: "Login Successful",

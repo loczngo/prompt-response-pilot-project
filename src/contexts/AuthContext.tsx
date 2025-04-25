@@ -16,7 +16,9 @@ const authenticateGuest = (tableNumber: number, seatCode: string): User | null =
     firstName: 'Guest',
     lastName: `${tableNumber}-${seatCode}`,
     email: '',
-    role: 'guest'
+    role: 'guest',
+    tableNumber: tableNumber,
+    seatCode: seatCode
   };
 };
 

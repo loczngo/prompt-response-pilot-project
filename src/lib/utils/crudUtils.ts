@@ -41,11 +41,27 @@ export const addPrompt = (text: string, targetTable: number | null): Prompt => {
   prompts.push(newPrompt);
   return newPrompt;
 };
+export const updatePrompt = (promptId: string, data: Partial<Prompt>) => {
+  const promptIndex = prompts.findIndex(p => p.id === promptId);
+  if (promptIndex !== -1) {
+    prompts[promptIndex] = { ...prompts[promptIndex], ...data };
+    return prompts[promptIndex];
+  }
+  return undefined;
+};
 export const updatePromptStatus = (promptId: string, status: 'active' | 'inactive') => {
   const prompt = prompts.find(p => p.id === promptId);
   if (prompt) {
     prompt.status = status;
   }
+};
+export const deletePrompt = (promptId: string): boolean => {
+  const index = prompts.findIndex(p => p.id === promptId);
+  if (index !== -1) {
+    prompts.splice(index, 1);
+    return true;
+  }
+  return false;
 };
 
 // Response operations

@@ -92,7 +92,7 @@ export const useTableManagement = (userTableNumber?: number) => {
     const seat = table.seats.find(s => s.code === seatCode);
     if (!seat) return;
     
-    // Match the seat status enum values from the models.ts file
+    // Toggle between available and unavailable
     const newStatus = seat.status === 'available' ? 'unavailable' : 'available';
     
     updateTableSeat(tableId, seatCode, { status: newStatus });

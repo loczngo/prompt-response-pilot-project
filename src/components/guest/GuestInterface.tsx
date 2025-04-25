@@ -1,13 +1,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, Bell } from 'lucide-react';
 import { PromptResponse } from './components/PromptResponse';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { getPrompt, getTable, addResponse } from '@/lib/mockDb';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
@@ -19,43 +15,25 @@ const GuestInterface = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const handleResponse = useCallback(async (response: ResponseOption) => {
-    if (!currentPrompt) return;
+  const handleResponse = useCallback((response: ResponseOption) => {
+    if (!currentPrompt || !user?.tableNumber || !user?.seatCode) return;
     
     setSelectedResponse(response);
     setHasResponded(true);
     
     try {
-      // Optimistically update the UI
+      // Add the response to mock database
+      addResponse(
+        currentPrompt.id,
+        user.tableNumber,
+        user.seatCode,
+        response
+      );
+      
       toast({
         title: "Response Sent",
         description: "Your response has been recorded.",
       });
-      
-      // Send the response to Supabase
-      const { error } = await supabase
-        .from('responses')
-        .insert({
-          prompt_id: currentPrompt.id,
-          user_id: user?.id,
-          response: response,
-          table_number: user?.tableNumber,
-          seat_code: user?.seatCode,
-          created_at: new Date().toISOString(),
-        });
-        
-      if (error) {
-        console.error("Error submitting response:", error);
-        toast({
-          title: "Error",
-          description: "Failed to submit your response.",
-          variant: "destructive",
-        });
-        
-        // Revert the UI on failure
-        setHasResponded(false);
-        setSelectedResponse(null);
-      }
     } catch (error) {
       console.error("Error submitting response:", error);
       toast({
@@ -68,10 +46,10 @@ const GuestInterface = () => {
       setHasResponded(false);
       setSelectedResponse(null);
     }
-  }, [currentPrompt, user, setSelectedResponse, setHasResponded, toast, supabase]);
+  }, [currentPrompt, user, toast]);
   
   useEffect(() => {
-    const fetchCurrentPrompt = async () => {
+    const fetchCurrentPrompt = () => {
       try {
         // First get the user's assigned table
         if (!user?.tableNumber) {
@@ -79,33 +57,25 @@ const GuestInterface = () => {
           return;
         }
         
-        // Get the table from Supabase to get current_prompt_id
-        const { data: tableData, error: tableError } = await supabase
-          .from('tables')
-          .select('*')
-          .eq('id', user.tableNumber)
-          .single();
+        // Get the table from mock database
+        const tableData = getTable(user.tableNumber);
           
-        if (tableError) {
-          console.error('Error fetching table:', tableError);
+        if (!tableData) {
+          console.log('Table not found');
           return;
         }
         
-        if (!tableData?.current_prompt_id) {
+        if (!tableData.currentPromptId) {
           console.log('No current prompt for table');
           setCurrentPrompt(null);
           return;
         }
         
         // Now fetch the prompt using the prompt ID from the table
-        const { data: promptData, error: promptError } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('id', tableData.current_prompt_id)
-          .single();
+        const promptData = getPrompt(tableData.currentPromptId);
           
-        if (promptError) {
-          console.error('Error fetching prompt:', promptError);
+        if (!promptData) {
+          console.log('Prompt not found');
           return;
         }
         
@@ -133,7 +103,7 @@ const GuestInterface = () => {
     
     // Clean up the interval when the component unmounts
     return () => clearInterval(intervalId);
-  }, [user, setSelectedResponse, supabase]);
+  }, [user]);
   
   return (
     <div className="flex items-center justify-center h-full">

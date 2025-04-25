@@ -77,7 +77,7 @@ export const TableSeat: React.FC<TableSeatProps> = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleToggle}>
-              {seat.status === 'available' ? 'Set Inactive' : 'Set Active'}
+              {seat.status === 'available' ? 'Set Unavailable' : 'Set Available'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

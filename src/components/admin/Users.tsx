@@ -19,10 +19,8 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Add table selection state
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   
-  // Form state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
@@ -33,9 +31,8 @@ const Users = () => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
-  const tables = getTables(); // Get available tables
+  const tables = getTables();
 
-  // Access control - only user-admin and super-admin can access
   if (currentUser?.role !== 'super-admin' && currentUser?.role !== 'user-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -57,10 +54,8 @@ const Users = () => {
   };
   
   const filteredUsers = users.filter(user => {
-    // Don't show guests in the user list
     if (user.role === 'guest') return false;
     
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -81,6 +76,7 @@ const Users = () => {
       lastName,
       username,
       password,
+      email: `${username}@example.com`,
       role,
       status: isActive ? 'active' : 'inactive',
       tableNumber: role === 'table-admin' && selectedTable ? Number(selectedTable) : undefined
@@ -124,7 +120,6 @@ const Users = () => {
   };
   
   const handleDeleteUser = (id: string) => {
-    // Prevent deleting yourself
     if (id === currentUser?.id) {
       toast({
         title: "Cannot Delete",
@@ -252,11 +247,9 @@ const Users = () => {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Super admin can create any role */}
                     {currentUser?.role === 'super-admin' && (
                       <SelectItem value="super-admin">Super Admin</SelectItem>
                     )}
-                    {/* Both super-admin and user-admin can create user-admin and table-admin */}
                     <SelectItem value="user-admin">User Admin</SelectItem>
                     <SelectItem value="table-admin">Table Admin</SelectItem>
                   </SelectContent>
@@ -304,7 +297,6 @@ const Users = () => {
         </Dialog>
       </div>
       
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -315,7 +307,6 @@ const Users = () => {
         />
       </div>
       
-      {/* Edit User Dialog */}
       <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -386,7 +377,6 @@ const Users = () => {
                   {currentUser?.role === 'super-admin' && (
                     <SelectItem value="super-admin">Super Admin</SelectItem>
                   )}
-                  {/* Both super-admin and user-admin can edit to user-admin or table-admin roles */}
                   <SelectItem value="user-admin">User Admin</SelectItem>
                   <SelectItem value="table-admin">Table Admin</SelectItem>
                 </SelectContent>
@@ -433,7 +423,6 @@ const Users = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Users Table */}
       <div className="bg-card rounded-md shadow">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

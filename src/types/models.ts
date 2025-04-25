@@ -10,6 +10,7 @@ export interface User {
   status?: 'active' | 'inactive';
   lastActive?: string;
   tableNumber?: number;
+  seatCode?: string;
 }
 
 export interface Seat {
