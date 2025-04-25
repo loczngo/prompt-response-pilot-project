@@ -18,7 +18,7 @@ const Prompts = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   
   const { user } = useAuth();
-  const { handleAddPromptLocal, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
+  const { handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
     user?.role, 
     user?.tableNumber
   );
@@ -50,12 +50,12 @@ const Prompts = () => {
     setShowEditPrompt(true);
   };
 
-  // Fixed: Modified to return void instead of Promise<boolean>
+  // Fixed: Modified to return Promise<boolean> to match the expected type in PromptDialog
   const handleAddPrompt = async (promptData: {
     text: string;
     targetTable: string | null;
     isActive: boolean;
-  }): Promise<void> => {
+  }): Promise<boolean> => {
     try {
       console.log('Creating new prompt in Supabase:', promptData);
       const { error } = await supabase
@@ -75,6 +75,8 @@ const Prompts = () => {
         title: "Prompt Created",
         description: "The prompt has been successfully created.",
       });
+      
+      return true;
     } catch (error) {
       console.error('Error creating prompt:', error);
       toast({
@@ -82,7 +84,7 @@ const Prompts = () => {
         description: "Failed to create prompt.",
         variant: "destructive"
       });
-      throw error;
+      return false;
     }
   };
 

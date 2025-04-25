@@ -136,10 +136,11 @@ export const useRealtimeUpdates = () => {
     channel
       .subscribe((status) => {
         console.log('Supabase realtime subscription status:', status);
+        
         if (status === 'SUBSCRIBED') {
           setRealtimeStatus('connected');
-        } else if (status.error) {
-          console.error('Supabase realtime error:', status);
+        } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime subscription issue:', status);
           setRealtimeStatus('error');
         }
       });
