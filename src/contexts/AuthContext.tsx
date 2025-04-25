@@ -23,9 +23,10 @@ const authenticateGuest = (tableNumber: number, seatCode: string): User | null =
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;  // Added isLoading property
   login: (username: string, password: string) => Promise<User | null>;
-  loginAdmin: (username: string, password: string) => Promise<User | null>; // Added this
-  loginGuest: (tableNumber: number, seatCode: string) => Promise<User | null>; // Added this
+  loginAdmin: (username: string, password: string) => Promise<User | null>;
+  loginGuest: (tableNumber: number, seatCode: string) => Promise<User | null>;
   logout: () => void;
 }
 
@@ -33,14 +34,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Added loading state
 
   const login = async (username: string, password: string): Promise<User | null> => {
-    const user = authenticateUser(username, password);
-    if (user) {
-      setUser(user);
-      return user;
+    setIsLoading(true);
+    try {
+      const user = authenticateUser(username, password);
+      if (user) {
+        setUser(user);
+        return user;
+      }
+      return null;
+    } finally {
+      setIsLoading(false);
     }
-    return null;
   };
 
   const loginAdmin = async (username: string, password: string): Promise<User | null> => {
@@ -48,12 +55,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const loginGuest = async (tableNumber: number, seatCode: string): Promise<User | null> => {
-    const guestUser = authenticateGuest(tableNumber, seatCode);
-    if (guestUser) {
-      setUser(guestUser);
-      return guestUser;
+    setIsLoading(true);
+    try {
+      const guestUser = authenticateGuest(tableNumber, seatCode);
+      if (guestUser) {
+        setUser(guestUser);
+        return guestUser;
+      }
+      return null;
+    } finally {
+      setIsLoading(false);
     }
-    return null;
   };
 
   const logout = () => {
@@ -63,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     user,
     isAuthenticated: user !== null,
+    isLoading,
     login,
     loginAdmin,
     loginGuest,

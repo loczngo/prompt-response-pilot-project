@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Table, getTable, getTables, updateTable, updateTableSeat } from '@/lib/mockDb';
+import { Table, getTable, getTables } from '@/lib/mockDb';
+import { updateTable, updateTableSeat } from '@/lib/utils/crudUtils';
 import { useSharedState } from '@/hooks/use-shared-state';
 
 export const useTableManagement = (userTableNumber?: number) => {
@@ -91,13 +92,14 @@ export const useTableManagement = (userTableNumber?: number) => {
     const seat = table.seats.find(s => s.code === seatCode);
     if (!seat) return;
     
-    const newStatus = seat.status === 'active' ? 'inactive' : 'active';
+    // Match the seat status enum values from the models.ts file
+    const newStatus = seat.status === 'available' ? 'unavailable' : 'available';
     
     updateTableSeat(tableId, seatCode, { status: newStatus });
     refreshTables();
     
     toast({
-      title: `Seat ${seatCode} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
+      title: `Seat ${seatCode} ${newStatus === 'available' ? 'Activated' : 'Deactivated'}`,
       description: `Seat ${seatCode} is now ${newStatus}.`,
     });
   };

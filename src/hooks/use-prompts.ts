@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { Prompt, getPrompts, createPrompt, updatePrompt, deletePrompt, Role, User, getTable } from '@/lib/mockDb';
+import { Prompt, getPrompts, Role, User, getTable } from '@/lib/mockDb';
+import { addPrompt, updatePrompt, deletePrompt } from '@/lib/utils/crudUtils';
 import { useToast } from '@/hooks/use-toast';
 import { useSharedState } from '@/hooks/use-shared-state';
 
@@ -42,11 +43,10 @@ export const usePrompts = (userRole?: Role, userTableNumber?: number) => {
       targetTable = userTableNumber;
     }
     
-    createPrompt({
-      text: promptData.text,
-      targetTable: targetTable,
-      status: promptData.isActive ? 'active' : 'inactive'
-    });
+    addPrompt(
+      promptData.text,
+      targetTable
+    );
     
     refreshPrompts();
     

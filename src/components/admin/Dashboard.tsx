@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,8 +45,8 @@ const Dashboard = () => {
   const tables = getTables();
   const tableData = tables.map((table) => ({
     id: table.id,
-    activeSeats: table.seats.filter(s => s.status === 'active').length,
-    inactiveSeats: table.seats.filter(s => s.status === 'inactive').length,
+    activeSeats: table.seats.filter(s => s.status === 'available' || s.status === 'occupied').length,
+    inactiveSeats: table.seats.filter(s => s.status === 'unavailable').length,
     name: `Table ${table.id}`,
   }));
   
