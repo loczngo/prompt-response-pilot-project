@@ -1,13 +1,13 @@
 
-import { Table, Seat, User } from '@/lib/mockDb';
+import { Table } from '@/lib/mockDb';
 
 export interface TableManagementHook {
   tables: Table[];
   tableNumber: string;
-  selectedTable: Table | null;
+  selectedTable: string;
   setTableNumber: (value: string) => void;
-  refreshTables: () => void;
+  handleRefresh: () => void;
   handleTableSelect: () => void;
-  handleTableStatusToggle: (tableId: number) => void;
-  handleSeatStatusToggle: (tableId: number, seatCode: string) => void;
+  handleTableStatusToggle: (tableId: string) => void;
+  handleSeatStatusToggle: (tableId: string, seatCode: string) => void;
 }

@@ -5,7 +5,7 @@ import { Table } from '@/lib/mockDb';
 
 export const useTableManagement = (assignedTableNumber?: string) => {
   const [tableNumber, setTableNumber] = useState<string>(assignedTableNumber || '');
-  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string>('');
   
   const { 
     data: tables, 
@@ -21,31 +21,26 @@ export const useTableManagement = (assignedTableNumber?: string) => {
 
   const handleTableSelect = () => {
     if (!tableNumber) {
-      setSelectedTable(null);
+      setSelectedTable('');
       return;
     }
     
-    const table = tables.find(t => t.id.toString() === tableNumber);
-    if (table) {
-      setSelectedTable(table);
-    }
+    setSelectedTable(tableNumber);
   };
 
-  const handleTableStatusToggle = (tableId: number) => {
+  const handleTableStatusToggle = (tableId: string) => {
     // This would typically call an API to toggle the table status
     console.log(`Toggling status for table ${tableId}`);
     // After toggle, refresh tables
     handleRefresh();
   };
 
-  const handleSeatStatusToggle = (tableId: number, seatCode: string) => {
+  const handleSeatStatusToggle = (tableId: string, seatCode: string) => {
     // This would typically call an API to toggle the seat status
     console.log(`Toggling status for table ${tableId}, seat ${seatCode}`);
     // After toggle, refresh tables
     handleRefresh();
   };
-
-  const refreshTables = handleRefresh;
 
   return {
     tables,
@@ -56,7 +51,7 @@ export const useTableManagement = (assignedTableNumber?: string) => {
     loadingData,
     refreshing,
     hasAttemptedFetch,
-    handleRefresh: refreshTables,
+    handleRefresh,
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle,

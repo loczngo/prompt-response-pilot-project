@@ -9,17 +9,18 @@ export const useSeatManagement = (tableId: string) => {
   const [loadingSeats, setLoadingSeats] = useState(false);
   const { toast } = useToast();
 
-  const fetchSeats = async (tableId: number) => {
+  const fetchSeats = async (tableId: string) => {
     if (!tableId) return;
     
     setLoadingSeats(true);
     console.log('Fetching seats for table:', tableId);
 
     try {
+      const numericTableId = parseInt(tableId, 10);
       const { data, error } = await supabase
         .from('seats')
         .select('*')
-        .eq('table_id', tableId)
+        .eq('table_id', numericTableId)
         .eq('status', 'active')
         .is('user_id', null);
 
@@ -63,9 +64,9 @@ export const useSeatManagement = (tableId: string) => {
       return;
     }
 
-    const numericTableId = parseInt(tableId, 10);
-    fetchSeats(numericTableId);
+    fetchSeats(tableId);
 
+    const numericTableId = parseInt(tableId, 10);
     const channelId = `seat_updates_table${numericTableId}_${Math.random().toString(36).substring(2, 9)}`;
     
     const channel = supabase
@@ -74,7 +75,7 @@ export const useSeatManagement = (tableId: string) => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'seats', filter: `table_id=eq.${numericTableId}` },
         () => {
-          setTimeout(() => fetchSeats(numericTableId), 1000);
+          setTimeout(() => fetchSeats(tableId), 1000);
         }
       )
       .subscribe();

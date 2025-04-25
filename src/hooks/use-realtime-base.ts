@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from '@/hooks/use-toast';
 import { useSharedState } from './use-shared-state';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +54,8 @@ export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRe
           });
         }
       } else if (fetchedData && Array.isArray(fetchedData)) {
-        setData(fetchedData as T[]);
+        // Convert the returned data to the expected type using double casting to avoid type errors
+        setData(fetchedData as unknown as T[]);
         localStorage.setItem(`cached_${cacheKey}`, JSON.stringify(fetchedData));
       }
     } catch (err) {

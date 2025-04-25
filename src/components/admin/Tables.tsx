@@ -60,7 +60,8 @@ const Tables = () => {
     tableNumber,
     selectedTable,
     setTableNumber,
-    refreshTables,
+    setSelectedTable,
+    handleRefresh,
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle
@@ -88,13 +89,16 @@ const Tables = () => {
   const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
     
-    updateTable(selectedTable.id, { currentPromptId: selectedPromptId });
-    refreshTables();
-    
-    toast({
-      title: "Prompt Sent",
-      description: "The prompt has been sent to the table.",
-    });
+    const tableObj = getTable(parseInt(selectedTable, 10));
+    if (tableObj) {
+      updateTable(tableObj.id, { currentPromptId: selectedPromptId });
+      handleRefresh();
+      
+      toast({
+        title: "Prompt Sent",
+        description: "The prompt has been sent to the table.",
+      });
+    }
   };
 
   const handleSendMessage = () => {
@@ -102,7 +106,7 @@ const Tables = () => {
     
     toast({
       title: "Message Sent",
-      description: `Message has been sent to Table ${selectedTable.id}.`,
+      description: `Message has been sent to Table ${selectedTable}.`,
     });
     
     setTableMessage('');
@@ -114,7 +118,7 @@ const Tables = () => {
     
     toast({
       title: "Data Exported",
-      description: `Table ${selectedTable.id} data has been exported.`,
+      description: `Table ${selectedTable} data has been exported.`,
     });
   };
 
@@ -123,7 +127,7 @@ const Tables = () => {
     
     toast({
       title: "Report Printed",
-      description: `Table ${selectedTable.id} report has been sent to printer.`,
+      description: `Table ${selectedTable} report has been sent to printer.`,
     });
   };
 
@@ -139,7 +143,7 @@ const Tables = () => {
         title: "Response Deleted",
         description: "The response has been removed from the system.",
       });
-      refreshTables();
+      handleRefresh();
     }
   };
 
@@ -158,7 +162,7 @@ const Tables = () => {
     };
 
     localStorage.setItem('prs_tables', JSON.stringify([...tables, newTable]));
-    refreshTables();
+    handleRefresh();
     setShowCreateTableDialog(false);
     
     toast({
@@ -166,6 +170,8 @@ const Tables = () => {
       description: `Table ${newTableId} has been created with ${newTableSeats} seats.`,
     });
   };
+
+  const selectedTableObj = selectedTable ? getTable(parseInt(selectedTable, 10)) : null;
 
   return (
     <div className="space-y-6">
@@ -177,7 +183,7 @@ const Tables = () => {
               Create New Table
             </Button>
           )}
-          <Button onClick={refreshTables}>
+          <Button onClick={handleRefresh}>
             <RefreshCcw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -197,7 +203,7 @@ const Tables = () => {
 
       {showTableSelector && (
         <TableSelector
-          tables={realtimeTables}
+          tables={realtimeTables as Table[]}
           tableNumber={tableNumber}
           selectedTable={selectedTable}
           onTableNumberChange={setTableNumber}
@@ -206,7 +212,7 @@ const Tables = () => {
         />
       )}
 
-      {selectedTable ? (
+      {selectedTable && selectedTableObj ? (
         <Tabs defaultValue="management">
           <TabsList className="mb-4">
             <TabsTrigger value="management">Table Management</TabsTrigger>
@@ -216,13 +222,13 @@ const Tables = () => {
           <TabsContent value="management">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <TableManagementSection
-                selectedTable={selectedTable}
-                onSeatStatusToggle={handleSeatStatusToggle}
+                selectedTable={selectedTableObj}
+                onSeatStatusToggle={(_, seatCode) => handleSeatStatusToggle(selectedTable, seatCode)}
                 onPlayerDealerQuery={handlePlayerDealerQuery}
               />
               
               <TableControlsSection
-                selectedTable={selectedTable}
+                selectedTable={selectedTableObj}
                 selectedPromptId={selectedPromptId}
                 onPromptSelect={setSelectedPromptId}
                 onSendPrompt={handleSendPrompt}
@@ -272,8 +278,8 @@ const Tables = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm">Occupied Seats:</span>
                           <span className="font-medium">
-                            {selectedTable.seats.filter(s => s.status === 'active' && s.userId).length} / 
-                            {selectedTable.seats.filter(s => s.status === 'active').length}
+                            {selectedTableObj.seats.filter(s => s.status === 'active' && s.userId).length} / 
+                            {selectedTableObj.seats.filter(s => s.status === 'active').length}
                           </span>
                         </div>
                         
@@ -290,11 +296,11 @@ const Tables = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm">Average Rating:</span>
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            selectedTable.status === 'active' 
+                            selectedTableObj.status === 'active' 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-amber-100 text-amber-800'
                           }`}>
-                            {selectedTable.status.charAt(0).toUpperCase() + selectedTable.status.slice(1)}
+                            {selectedTableObj.status.charAt(0).toUpperCase() + selectedTableObj.status.slice(1)}
                           </span>
                         </div>
                       </div>
@@ -307,7 +313,7 @@ const Tables = () => {
           
           <TabsContent value="responses">
             <TableResponsesSection
-              selectedTable={selectedTable}
+              selectedTable={selectedTableObj}
               onDeleteResponse={handleDeleteResponse}
             />
           </TabsContent>

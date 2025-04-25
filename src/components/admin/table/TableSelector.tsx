@@ -7,10 +7,10 @@ import { Label } from '@/components/ui/label';
 interface TableSelectorProps {
   tables: Table[];
   tableNumber: string;
-  selectedTable: Table | null;
+  selectedTable: string;
   onTableNumberChange: (value: string) => void;
   onTableSelect: () => void;
-  onTableStatusToggle: (tableId: number) => void;
+  onTableStatusToggle: (tableId: string) => void;
 }
 
 export const TableSelector = ({
@@ -21,6 +21,9 @@ export const TableSelector = ({
   onTableSelect,
   onTableStatusToggle
 }: TableSelectorProps) => {
+  // Find the selected table object for status display
+  const selectedTableObj = tables.find(t => t.id.toString() === selectedTable);
+
   return (
     <div className="flex space-x-4">
       <div className="flex-1">
@@ -42,13 +45,13 @@ export const TableSelector = ({
             </SelectContent>
           </Select>
           <Button onClick={onTableSelect}>View Table</Button>
-          {selectedTable && (
+          {selectedTable && selectedTableObj && (
             <Button 
               variant="outline"
-              onClick={() => onTableStatusToggle(selectedTable.id)}
-              className={selectedTable.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
+              onClick={() => onTableStatusToggle(selectedTable)}
+              className={selectedTableObj.status === 'active' ? 'bg-destructive/10' : 'bg-primary/10'}
             >
-              {selectedTable.status === 'active' ? 'Disable' : 'Enable'} Table
+              {selectedTableObj.status === 'active' ? 'Disable' : 'Enable'} Table
             </Button>
           )}
         </div>
