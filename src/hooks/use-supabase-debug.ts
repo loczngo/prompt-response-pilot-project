@@ -13,8 +13,10 @@ export const useSupabaseDebug = () => {
     const checkConnection = async () => {
       try {
         // First check if Supabase connection is working
-        // Using any here to bypass the TypeScript error with rpc
-        const { data, error } = await supabase.rpc('postgres_version' as any);
+        // Using a proper type assertion to bypass the TypeScript error with rpc
+        const { data, error } = await supabase.rpc('postgres_version', {}, {
+          count: 'exact'
+        });
         
         if (error) {
           console.warn('Supabase connection check error:', error);
