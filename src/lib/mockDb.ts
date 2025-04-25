@@ -5,15 +5,20 @@ export interface User {
   role: Role;
   tableNumber?: number;
   seatCode?: string;
+  username?: string;
+  password?: string;
+  status?: 'active' | 'inactive';
+  lastActive?: string;
 }
 
-export type Role = 'super-admin' | 'table-admin' | 'guest';
+export type Role = 'super-admin' | 'table-admin' | 'guest' | 'user-admin';
 
 export interface Seat {
   code: string;
   status: 'active' | 'inactive';
   userId?: string;
   isDealer?: boolean;
+  dealerHandsLeft?: number;
 }
 
 export interface Table {
@@ -34,9 +39,21 @@ export interface Prompt {
 export interface Response {
   id: string;
   tableId: number;
+  tableNumber: number;
   seatCode: string;
+  userId?: string;
+  promptId?: string;
+  answer: 'YES' | 'NO' | 'SERVICE';
   response: 'YES' | 'NO' | 'SERVICE';
   createdAt: string;
+  timestamp: string;
+}
+
+export interface Announcement {
+  id: string;
+  text: string;
+  targetTables: number[] | null;
+  timestamp: string;
 }
 
 const initialUsers: User[] = [
@@ -335,7 +352,133 @@ export const getUsers = (): User[] => {
   return storedUsers ? JSON.parse(storedUsers) : initialUsers;
 };
 
-// Helper function to generate a unique ID
+export const getStats = () => {
+  const tables = getTables();
+  const activeTables = tables.filter(t => t.status === 'active').length;
+  
+  let activeSeats = 0;
+  let occupiedSeats = 0;
+  let serviceRequests = 0;
+  const responses = getResponses();
+  
+  tables.forEach(table => {
+    const tableActiveSeats = table.seats.filter(s => s.status === 'active').length;
+    activeSeats += tableActiveSeats;
+    
+    const tableOccupiedSeats = table.seats.filter(s => s.status === 'active' && s.userId).length;
+    occupiedSeats += tableOccupiedSeats;
+  });
+  
+  const oneDayAgo = new Date();
+  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+  
+  serviceRequests = responses.filter(r => 
+    r.response === 'SERVICE' && 
+    new Date(r.timestamp) > oneDayAgo
+  ).length;
+  
+  return {
+    activeTables,
+    activeSeats,
+    occupiedSeats,
+    serviceRequests,
+    satisfactionRate: 85,
+  };
+};
+
+export const getAnnouncements = (): Announcement[] => {
+  const storedAnnouncements = localStorage.getItem('prs_announcements');
+  return storedAnnouncements ? JSON.parse(storedAnnouncements) : [
+    {
+      id: '1',
+      text: 'Welcome to the Prompt and Response System demo!',
+      targetTables: null,
+      timestamp: new Date().toISOString()
+    },
+    {
+      id: '2',
+      text: 'New Player-Dealer rotation will begin in 15 minutes.',
+      targetTables: [1],
+      timestamp: new Date(Date.now() - 300000).toISOString()
+    }
+  ];
+};
+
+export const createAnnouncement = (announcement: Omit<Announcement, 'id' | 'timestamp'>): void => {
+  const announcements = getAnnouncements();
+  const newAnnouncement = { 
+    ...announcement, 
+    id: generateId(), 
+    timestamp: new Date().toISOString() 
+  };
+  localStorage.setItem('prs_announcements', JSON.stringify([...announcements, newAnnouncement]));
+};
+
+export const createUser = (userData: Partial<User>): User => {
+  const users = getUsers();
+  const newUser: User = {
+    id: generateId(),
+    firstName: userData.firstName || '',
+    lastName: userData.lastName || '',
+    role: userData.role || 'guest',
+    tableNumber: userData.tableNumber,
+    seatCode: userData.seatCode,
+    username: userData.username,
+    password: userData.password,
+    status: userData.status || 'active',
+    lastActive: new Date().toISOString()
+  };
+  
+  localStorage.setItem('prs_users', JSON.stringify([...users, newUser]));
+  return newUser;
+};
+
+export const updateUser = (id: string, updates: Partial<User>): void => {
+  const users = getUsers();
+  const updatedUsers = users.map(user => 
+    user.id === id ? { ...user, ...updates } : user
+  );
+  localStorage.setItem('prs_users', JSON.stringify(updatedUsers));
+};
+
+export const deleteUser = (id: string): void => {
+  const users = getUsers();
+  const filteredUsers = users.filter(user => user.id !== id);
+  localStorage.setItem('prs_users', JSON.stringify(filteredUsers));
+};
+
+export const authenticateUser = (username: string, password: string): User | null => {
+  const users = getUsers();
+  const user = users.find(u => 
+    u.username === username && 
+    u.password === password &&
+    u.role !== 'guest'
+  );
+  
+  if (user) {
+    updateUser(user.id, { lastActive: new Date().toISOString() });
+    return user;
+  }
+  
+  return null;
+};
+
+export const authenticateGuest = (tableNumber: number, seatCode: string): User | null => {
+  const users = getUsers();
+  const user = users.find(u => 
+    u.tableNumber === tableNumber && 
+    u.seatCode === seatCode &&
+    u.role === 'guest'
+  );
+  
+  if (user) {
+    updateUser(user.id, { lastActive: new Date().toISOString() });
+    return user;
+  }
+  
+  return null;
+};
+
 const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);
 };

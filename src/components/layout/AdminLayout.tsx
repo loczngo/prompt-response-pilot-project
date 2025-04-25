@@ -1,170 +1,96 @@
-
-import { useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/router';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  Users, 
-  LayoutList, 
-  BellRing, 
-  FileBarChart, 
-  LogOut, 
-  Menu, 
-  X 
-} from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { Menu } from 'lucide-react';
+import Sidebar from './Sidebar';
 
-type AdminLayoutProps = {
-  children: React.ReactNode;
-  currentSection: string;
-  onSectionChange: (section: string) => void;
-};
+const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+  const { user: currentUser, logout } = useAuth();
+  const router = useRouter();
 
-type NavItem = {
-  name: string;
-  icon: React.ReactNode;
-  allowedRoles: string[];
-};
-
-const AdminLayout = ({ children, currentSection, onSectionChange }: AdminLayoutProps) => {
-  const { user, logout } = useAuth();
-  const isMobile = useIsMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  
-  const navItems: NavItem[] = [
-    { 
-      name: 'dashboard', 
-      icon: <LayoutDashboard className="h-5 w-5" />, 
-      allowedRoles: ['super-admin', 'user-admin', 'table-admin'] 
-    },
-    { 
-      name: 'prompts', 
-      icon: <MessageSquare className="h-5 w-5" />, 
-      allowedRoles: ['super-admin', 'table-admin'] 
-    },
-    { 
-      name: 'users', 
-      icon: <Users className="h-5 w-5" />, 
-      allowedRoles: ['super-admin', 'user-admin'] 
-    },
-    { 
-      name: 'tables', 
-      icon: <LayoutList className="h-5 w-5" />, 
-      allowedRoles: ['super-admin', 'table-admin'] 
-    },
-    { 
-      name: 'announcements', 
-      icon: <BellRing className="h-5 w-5" />, 
-      allowedRoles: ['super-admin', 'table-admin'] 
-    },
-    { 
-      name: 'reports', 
-      icon: <FileBarChart className="h-5 w-5" />, 
-      allowedRoles: ['super-admin'] 
-    }
-  ];
-  
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
-  
+
   return (
-    <div className="flex h-screen bg-muted/30">
-      {/* Mobile menu toggle */}
-      <div className="fixed top-0 left-0 z-50 p-4 md:hidden">
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={toggleSidebar}
-          className="bg-background shadow-md border-primary/20"
-        >
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </div>
-      
-      {/* Sidebar */}
-      <div 
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-background shadow-lg transform transition-transform duration-300 ease-in-out border-r",
-          {
-            "translate-x-0": sidebarOpen,
-            "-translate-x-full": !sidebarOpen && isMobile,
-          }
-        )}
-      >
-        <div className="flex flex-col h-full">
-          <div className="p-4">
-            <h1 className="text-2xl font-bold text-primary">PRS Admin</h1>
-            <p className="text-sm text-muted-foreground">
-              {user?.role.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-            </p>
+    <div className="min-h-screen flex flex-col">
+      <header className="bg-secondary border-b">
+        <div className="container flex items-center h-16">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="mr-2">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+                <SheetDescription>
+                  Manage your account preferences and settings.
+                </SheetDescription>
+              </SheetHeader>
+              <Sidebar />
+            </SheetContent>
+          </Sheet>
+          <div className="font-bold">
+            Prompt & Response System
           </div>
-          
-          <Separator />
-          
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navItems
-              .filter(item => item.allowedRoles.includes(user?.role || ''))
-              .map(item => (
-                <button
-                  key={item.name}
-                  onClick={() => {
-                    onSectionChange(item.name);
-                    if (isMobile) setSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    currentSection === item.name
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-accent"
-                  )}
-                >
-                  {item.icon}
-                  <span className="ml-3 capitalize">{item.name}</span>
-                </button>
-              ))
-            }
-          </nav>
-          
-          <div className="p-4 mt-auto">
-            <div className="flex items-center mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                {user?.firstName.charAt(0)}
-                {user?.lastName.charAt(0)}
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {user?.username || 'Guest'}
-                </p>
-              </div>
-            </div>
-            
-            <Button 
-              variant="outline" 
-              className="w-full flex items-center justify-center" 
-              onClick={logout}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+          <div className="ml-auto" />
+          {/* User menu in top right */}
+          <div className="hidden md:flex items-center gap-4">
+            {currentUser && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {currentUser.firstName.charAt(0)}{currentUser.lastName.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    {currentUser.firstName} {currentUser.lastName}
+                    {currentUser.username && (
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        @{currentUser.username}
+                      </span>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
-      </div>
-      
-      {/* Main content */}
-      <div 
-        className={cn(
-          "flex-1 overflow-auto transition-all duration-300 ease-in-out", 
-          sidebarOpen ? "md:ml-64" : "ml-0"
-        )}
-      >
-        <div className="p-6 min-h-screen">
+      </header>
+
+      <div className="flex-1">
+        <main className="container py-10">
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );

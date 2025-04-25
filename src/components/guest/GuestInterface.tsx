@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,6 +40,7 @@ const GuestInterface = () => {
           user_id: user?.id,
           response: response,
           table_number: user?.tableNumber,
+          seat_code: user?.seatCode,
           created_at: new Date().toISOString(),
         });
         

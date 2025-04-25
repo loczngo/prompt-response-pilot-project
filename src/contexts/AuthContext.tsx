@@ -1,124 +1,128 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { User, getUsers } from '@/lib/mockDb';
+import { Role } from '@/lib/mockDb';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  User, 
-  authenticateUser, 
-  authenticateGuest,
-  getUsers
-} from '@/lib/mockDb';
+import { authenticateUser, authenticateGuest } from '@/lib/mockDb';
+import { supabase } from '@/integrations/supabase/client';
 
-type AuthContextType = {
+interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  loginAdmin: (username: string, password: string) => Promise<void>;
-  loginGuest: (name: string, tableNumber: number, seatCode: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<boolean>;
+  guestLogin: (tableNumber: string, seatCode: string) => Promise<boolean>;
   logout: () => void;
-};
+  setUser: (user: User | null) => void;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for saved authentication in session storage
-    const savedUser = sessionStorage.getItem('prs_auth_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        sessionStorage.removeItem('prs_auth_user');
-      }
+    // Check for stored user on mount
+    const storedUser = localStorage.getItem('prs_current_user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
     setIsLoading(false);
   }, []);
 
-  const loginAdmin = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    
     try {
-      setIsLoading(true);
+      // For demo purposes, using mock authenticateUser function
+      const user = await authenticateUser(username, password);
       
-      // First try the standard authentication
-      let authenticatedUser = authenticateUser(username, password);
-      
-      // If standard authentication fails, check if this is a case-sensitivity issue
-      if (!authenticatedUser) {
-        const allUsers = getUsers();
-        // Find user with case-insensitive username match and matching password
-        const matchedUser = allUsers.find(u => 
-          u.username?.toLowerCase() === username.toLowerCase() && 
-          u.password === password && 
-          u.status === 'active'
-        );
-        
-        if (matchedUser) {
-          authenticatedUser = matchedUser;
-        }
-      }
-      
-      if (authenticatedUser) {
-        setUser(authenticatedUser);
-        sessionStorage.setItem('prs_auth_user', JSON.stringify(authenticatedUser));
+      if (user && user.status !== 'inactive') {
+        setUser(user);
+        localStorage.setItem('prs_current_user', JSON.stringify(user));
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${authenticatedUser.firstName}!`,
+          description: `Welcome back, ${user.firstName}!`,
         });
+        setIsLoading(false);
+        return true;
       } else {
         toast({
           title: "Login Failed",
-          description: "Invalid username or password",
+          description: "Invalid username or password.",
           variant: "destructive",
         });
-        throw new Error('Invalid credentials');
+        setIsLoading(false);
+        return false;
       }
     } catch (error) {
       console.error('Login error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loginGuest = async (name: string, tableNumber: number, seatCode: string) => {
-    try {
-      setIsLoading(true);
-      const guestUser = authenticateGuest(name, tableNumber, seatCode);
-      
-      if (guestUser) {
-        setUser(guestUser);
-        sessionStorage.setItem('prs_auth_user', JSON.stringify(guestUser));
-        toast({
-          title: "Welcome",
-          description: `You've been assigned to Table ${tableNumber}, Seat ${seatCode}`,
-        });
-      }
-    } catch (error: any) {
       toast({
-        title: "Login Failed",
-        description: error.message || "Failed to join table",
+        title: "Login Error",
+        description: "There was a problem logging in.",
         variant: "destructive",
       });
-      console.error('Guest login error:', error);
-      throw error;
-    } finally {
       setIsLoading(false);
+      return false;
+    }
+  };
+  
+  const guestLogin = async (tableNumber: string, seatCode: string): Promise<boolean> => {
+    setIsLoading(true);
+    
+    try {
+      // For demo purposes, using mock authenticateGuest function
+      const user = await authenticateGuest(parseInt(tableNumber), seatCode);
+      
+      if (user) {
+        setUser(user);
+        localStorage.setItem('prs_current_user', JSON.stringify(user));
+        toast({
+          title: "Login Successful",
+          description: `Welcome, ${user.firstName}!`,
+        });
+        setIsLoading(false);
+        return true;
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid table number or seat code.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return false;
+      }
+    } catch (error) {
+      console.error('Guest login error:', error);
+      toast({
+        title: "Login Error",
+        description: "There was a problem logging in.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return false;
     }
   };
 
   const logout = () => {
     setUser(null);
-    sessionStorage.removeItem('prs_auth_user');
+    localStorage.removeItem('prs_current_user');
     toast({
       title: "Logged Out",
-      description: "You have been successfully logged out",
+      description: "You have been successfully logged out.",
     });
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, loginAdmin, loginGuest, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      login, 
+      guestLogin, 
+      logout, 
+      setUser 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -24,72 +24,58 @@ export const TableControlsSection = ({
   onPromptSelect,
   onSendPrompt,
 }: TableControlsSectionProps) => {
-  // Use shared state for active prompts to sync across tabs
-  const [activePrompts, setActivePrompts] = useSharedState<ReturnType<typeof getPrompts>>('activePrompts', []);
-  const [currentPromptText, setCurrentPromptText] = useState<string | undefined>('');
+  const [prompts, setPrompts] = useState<any[]>([]);
   const { toast } = useToast();
   
-  // Periodically refresh prompts and current prompt display
   useEffect(() => {
-    const updatePrompts = async () => {
+    const fetchPrompts = async () => {
       try {
-        // Fetch active prompts from Supabase
-        const { data: prompts, error } = await supabase
+        // Fetch prompts from Supabase
+        const { data, error } = await supabase
           .from('prompts')
           .select('*')
-          .eq('status', 'active')
-          .or(`target_table.is.null,target_table.eq.${selectedTable.id}`);
-        
+          .order('created_at', { ascending: false });
+          
         if (error) {
           console.error('Error fetching prompts:', error);
           return;
         }
-
-        if (prompts) {
-          // Convert the Supabase prompts to local Prompt type
-          const convertedPrompts = prompts.map(convertSupabasePromptToPrompt);
-          setActivePrompts(convertedPrompts);
-          
-          // Update current prompt text if table has a prompt assigned
-          if (selectedTable.currentPromptId) {
-            const currentPrompt = prompts.find(p => p.id === selectedTable.currentPromptId);
-            setCurrentPromptText(currentPrompt?.text || 'Unknown prompt');
-          } else {
-            setCurrentPromptText(undefined);
-          }
+        
+        if (data && data.length > 0) {
+          // Convert Supabase prompts to local format
+          setPrompts(data);
+        } else {
+          // Fallback to local storage data
+          setPrompts(getPrompts());
         }
       } catch (error) {
-        console.error('Error in updatePrompts:', error);
+        console.error('Error in fetchPrompts:', error);
+        // Fallback to local storage data
+        setPrompts(getPrompts());
       }
     };
     
-    // Update immediately and then every 1 second for more responsive updates
-    updatePrompts();
-    const interval = setInterval(updatePrompts, 1000);
-    
-    return () => clearInterval(interval);
-  }, [selectedTable, setActivePrompts]);
+    fetchPrompts();
+  }, []);
 
-  // Enhanced send prompt function
   const handleSendPrompt = async () => {
     if (!selectedTable || !selectedPromptId) return;
     
     try {
-      // Update the table in Supabase with the current prompt ID
+      // Update the table in Supabase with the selected prompt ID
       const { error } = await supabase
         .from('tables')
-        .update({ 
-          status: selectedTable.status,  // Keep existing status
-          current_prompt_id: selectedPromptId  // Add the current_prompt_id
+        .update({
+          current_prompt_id: selectedPromptId
         })
         .eq('id', selectedTable.id);
         
       if (error) {
-        console.error('Error updating table with prompt:', error);
+        console.error('Error sending prompt to table:', error);
         toast({
           title: "Error",
-          description: "Failed to send prompt to table.",
-          variant: "destructive"
+          description: "Failed to send the prompt to the table.",
+          variant: "destructive",
         });
         return;
       }
@@ -99,14 +85,14 @@ export const TableControlsSection = ({
         description: "The prompt has been sent to the table.",
       });
       
-      // Call the original handler to maintain compatibility
+      // Call the original onSendPrompt to update local state
       onSendPrompt();
     } catch (error) {
-      console.error('Error sending prompt:', error);
+      console.error('Error in handleSendPrompt:', error);
       toast({
         title: "Error",
-        description: "Failed to send prompt to table.",
-        variant: "destructive"
+        description: "Failed to send the prompt to the table.",
+        variant: "destructive",
       });
     }
   };
@@ -114,28 +100,25 @@ export const TableControlsSection = ({
   return (
     <Card className="lg:col-span-1">
       <CardHeader>
-        <CardTitle>Prompt Control</CardTitle>
+        <CardTitle>Send Prompt</CardTitle>
         <CardDescription>
-          Send prompts to the table
+          Send a prompt to display on guest devices
         </CardDescription>
       </CardHeader>
       
       <CardContent>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="prompt-select">Select Prompt</Label>
-            <Select
-              value={selectedPromptId}
-              onValueChange={onPromptSelect}
-            >
-              <SelectTrigger id="prompt-select">
-                <SelectValue placeholder="Select prompt" />
+            <Label htmlFor="prompt">Select Prompt</Label>
+            <Select value={selectedPromptId} onValueChange={onPromptSelect}>
+              <SelectTrigger id="prompt">
+                <SelectValue placeholder="Choose a prompt" />
               </SelectTrigger>
               <SelectContent>
-                {activePrompts.length === 0 ? (
-                  <SelectItem value="no-prompts" disabled>No active prompts available</SelectItem>
+                {prompts.length === 0 ? (
+                  <SelectItem value="no-prompts" disabled>No prompts available</SelectItem>
                 ) : (
-                  activePrompts.map((prompt) => (
+                  prompts.map((prompt) => (
                     <SelectItem key={prompt.id} value={prompt.id}>
                       {prompt.text}
                     </SelectItem>
@@ -145,25 +128,25 @@ export const TableControlsSection = ({
             </Select>
           </div>
           
-          <Button
+          <Button 
             className="w-full"
-            disabled={!selectedPromptId}
             onClick={handleSendPrompt}
+            disabled={!selectedPromptId}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
-            Send Prompt
+            Send to Table
           </Button>
           
-          <div className="mt-6">
-            <h3 className="text-sm font-medium mb-2">Current Prompt</h3>
+          <div className="text-sm text-muted-foreground mt-4">
             {selectedTable.currentPromptId ? (
-              <div className="p-3 bg-accent rounded-md border border-primary/30">
-                {currentPromptText || 'Unknown prompt'}
+              <div>
+                <p>Current prompt:</p>
+                <p className="font-medium">
+                  {prompts.find(p => p.id === selectedTable.currentPromptId)?.text || 'Unknown prompt'}
+                </p>
               </div>
             ) : (
-              <div className="p-3 bg-muted rounded-md text-muted-foreground">
-                No active prompt
-              </div>
+              <p>No prompt is currently active for this table.</p>
             )}
           </div>
         </div>

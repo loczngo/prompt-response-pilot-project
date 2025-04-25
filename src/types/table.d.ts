@@ -1,5 +1,6 @@
 
-import { Table, Seat, User } from '@/lib/mockDb';
+
+import { Table, Seat, User, Response, Prompt } from '@/lib/mockDb';
 
 export interface TableManagementHook {
   tables: Table[];
@@ -38,6 +39,16 @@ export interface SupabaseSeat {
   created_at?: string;
 }
 
+export interface SupabaseResponse {
+  id: string;
+  prompt_id: string;
+  user_id?: string;
+  table_number: number;
+  seat_code: string;
+  response: 'YES' | 'NO' | 'SERVICE';
+  created_at?: string;
+}
+
 export interface SupabaseAnnouncement {
   id: string;
   text: string;
@@ -45,7 +56,7 @@ export interface SupabaseAnnouncement {
   created_at?: string;
 }
 
-// Helper function to convert Supabase types to local types
+// Helper functions to convert Supabase types to local types
 export function convertSupabasePromptToPrompt(supabasePrompt: SupabasePrompt): Prompt {
   return {
     id: supabasePrompt.id,
@@ -56,3 +67,25 @@ export function convertSupabasePromptToPrompt(supabasePrompt: SupabasePrompt): P
   };
 }
 
+export function convertSupabaseTableToTable(supabaseTable: SupabaseTable): Partial<Table> {
+  return {
+    id: supabaseTable.id,
+    status: supabaseTable.status as 'active' | 'inactive',
+    currentPromptId: supabaseTable.current_prompt_id
+  };
+}
+
+export function convertSupabaseResponseToResponse(supabaseResponse: SupabaseResponse): Response {
+  return {
+    id: supabaseResponse.id,
+    promptId: supabaseResponse.prompt_id,
+    userId: supabaseResponse.user_id,
+    tableId: supabaseResponse.table_number,
+    tableNumber: supabaseResponse.table_number,
+    seatCode: supabaseResponse.seat_code,
+    response: supabaseResponse.response,
+    answer: supabaseResponse.response,
+    createdAt: supabaseResponse.created_at || new Date().toISOString(),
+    timestamp: supabaseResponse.created_at || new Date().toISOString()
+  };
+}

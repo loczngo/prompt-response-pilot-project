@@ -1,71 +1,75 @@
 
-import { Seat, getUsers } from '@/lib/mockDb';
+import React from 'react';
+import { Seat, User, getUsers } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
-import { UserCheck, UserX } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, User as UserIcon } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface TableSeatProps {
-  tableId: number;
   seat: Seat;
-  onToggleStatus: (seatCode: string) => void;
+  onSeatStatusToggle: () => void;
 }
 
-export const TableSeat = ({ tableId, seat, onToggleStatus }: TableSeatProps) => {
-  // Get user information directly from the users list
-  const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : undefined;
+export const TableSeat: React.FC<TableSeatProps> = ({ 
+  seat,
+  onSeatStatusToggle
+}) => {
+  const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : null;
 
   return (
-    <div 
-      className={`p-3 rounded-md border ${
-        seat.status === 'active' 
-          ? 'bg-accent border-primary/30' 
-          : 'bg-muted border-muted'
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div className={`h-8 w-8 rounded-full flex items-center justify-center mr-3 ${
-            seat.status === 'active' 
-              ? seat.isDealer 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-accent-foreground/10 text-accent-foreground' 
-              : 'bg-muted-foreground/20 text-muted-foreground'
-          }`}>
-            {seat.code}
-          </div>
-          <div>
-            <p className="font-medium">
-              Seat {seat.code}
-              {seat.isDealer && (
-                <span className="ml-2 text-xs bg-primary/20 text-primary-foreground px-2 py-1 rounded-full">
-                  Dealer ({seat.dealerHandsLeft} hands left)
-                </span>
-              )}
-            </p>
-            {user ? (
-              <p className="text-sm text-muted-foreground">
-                {user.firstName} {user.lastName}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">
-                Not occupied
-              </p>
-            )}
-          </div>
+    <div className={`flex flex-col items-center justify-center p-4 border rounded-md ${
+      seat.status === 'active' 
+        ? 'bg-white' 
+        : 'bg-muted/40'
+    }`}>
+      <div className="text-lg font-semibold">Seat {seat.code}</div>
+      
+      {user ? (
+        <div className="flex flex-col items-center mt-2 space-y-1">
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-medium">{user.firstName} {user.lastName}</span>
+          
+          {seat.isDealer && (
+            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200 mt-1">
+              {seat.dealerHandsLeft !== undefined && seat.dealerHandsLeft > 0 
+                ? `Dealer (${seat.dealerHandsLeft} hands left)` 
+                : 'Dealer'}
+            </Badge>
+          )}
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onToggleStatus(seat.code)}
-          >
-            {seat.status === 'active' ? (
-              <UserX className="h-4 w-4" />
-            ) : (
-              <UserCheck className="h-4 w-4" />
-            )}
-          </Button>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-16 mt-2">
+          <UserIcon className="h-7 w-7 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground mt-1">
+            {seat.status === 'active' ? 'Available' : 'Inactive'}
+          </span>
         </div>
+      )}
+      
+      <div className="mt-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onSeatStatusToggle}>
+              {seat.status === 'active' ? 'Set Inactive' : 'Set Active'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
