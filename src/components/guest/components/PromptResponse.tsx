@@ -1,9 +1,8 @@
 
-import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
@@ -21,11 +20,22 @@ export const PromptResponse = ({
   onResponse 
 }: PromptResponseProps) => {
   const [displayPrompt, setDisplayPrompt] = useState<any | null>(null);
+  const lastPromptRef = useRef<any | null>(null);
 
   // Update display prompt whenever currentPrompt changes
   useEffect(() => {
     console.log("Current prompt in PromptResponse:", currentPrompt);
-    setDisplayPrompt(currentPrompt);
+    
+    // Only update if the prompt is different
+    if (currentPrompt && (!lastPromptRef.current || currentPrompt.id !== lastPromptRef.current.id)) {
+      console.log("Setting new display prompt:", currentPrompt);
+      setDisplayPrompt(currentPrompt);
+      lastPromptRef.current = currentPrompt;
+    } else if (!currentPrompt && lastPromptRef.current) {
+      console.log("Clearing display prompt");
+      setDisplayPrompt(null);
+      lastPromptRef.current = null;
+    }
   }, [currentPrompt]);
 
   return (
@@ -42,7 +52,10 @@ export const PromptResponse = ({
       <CardContent className="p-6">
         <div className="teleprompter p-4 bg-muted/30 rounded-lg min-h-[100px] flex items-center justify-center">
           {displayPrompt ? (
-            <p className="text-lg text-center">{displayPrompt.text}</p>
+            <div className="text-lg text-center">
+              <p className="font-medium">{displayPrompt.text}</p>
+              <p className="text-xs text-muted-foreground mt-2">Prompt ID: {displayPrompt.id}</p>
+            </div>
           ) : (
             <p className="text-muted-foreground italic">Waiting for prompt...</p>
           )}

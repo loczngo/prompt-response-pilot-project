@@ -18,7 +18,8 @@ const GuestInterface = () => {
   const { toast } = useToast();
   const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
   
-  useRealtimeEnabler();
+  // Enable realtime updates
+  const { isEnabled: realtimeEnabled } = useRealtimeEnabler();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
@@ -26,13 +27,16 @@ const GuestInterface = () => {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
-  // Log updates for debugging
+  // Debug logs
   useEffect(() => {
     console.log("User table number:", user?.tableNumber);
-    console.log("Tables:", tables);
-    console.log("All prompts:", prompts);
-  }, [user, tables, prompts]);
+    console.log("Total tables:", tables.length, tables);
+    console.log("Total active prompts:", prompts.length, prompts);
+    console.log("Realtime enabled:", realtimeEnabled);
+    console.log("Realtime status:", realtimeStatus);
+  }, [user, tables, prompts, realtimeEnabled, realtimeStatus]);
 
+  // Find current prompt for this table
   useEffect(() => {
     if (!user?.tableNumber) {
       console.log('No table number assigned to user');
@@ -66,6 +70,9 @@ const GuestInterface = () => {
       
       setCurrentPrompt(latestPrompt);
       setHasResponded(false);
+      
+      // Clear response when prompt changes
+      setSelectedResponse(null);
     } else {
       console.log('No active prompts found for this table');
       setCurrentPrompt(null);
@@ -114,7 +121,7 @@ const GuestInterface = () => {
       const { error } = await supabase
         .from('announcements')
         .insert({
-          text: `Response ${response} to prompt ${currentPrompt.id}`,
+          text: `Response ${response} to prompt ${currentPrompt.text}`,
           target_table: user.tableNumber
         });
 
@@ -132,6 +139,9 @@ const GuestInterface = () => {
         title: "Response Recorded",
         description: `Your response "${response}" has been submitted.`,
       });
+      
+      // Force refresh data after submitting a response
+      refreshData();
     } catch (error) {
       console.error('Error submitting response:', error);
       toast({
@@ -142,10 +152,21 @@ const GuestInterface = () => {
     }
   };
 
-  // Force refresh data on initial load
+  // Force refresh data periodically
   useEffect(() => {
-    refreshData();
-  }, []);
+    const initialTimer = setTimeout(() => {
+      refreshData();
+    }, 1000); // Initial refresh after 1 second
+    
+    const intervalTimer = setInterval(() => {
+      refreshData();
+    }, 15000); // Refresh every 15 seconds
+    
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+    };
+  }, [refreshData]);
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">

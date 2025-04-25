@@ -11,23 +11,21 @@ export const useRealtimeUpdates = () => {
   const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
 
   // Function to fetch initial data
   const fetchInitialData = async () => {
     try {
       console.log('Fetching initial data from Supabase...');
       
-      // Fetch tables
+      // Fetch tables with better error handling
       const { data: tablesData, error: tablesError } = await supabase
         .from('tables')
         .select('*');
       
       if (tablesError) {
-        if (tablesError.code === '42501') {
-          console.log('Permission denied for tables, but continuing...');
-        } else {
-          console.error('Error fetching tables:', tablesError);
-        }
+        // Normal operation: just log the error and continue
+        console.log('Error fetching tables:', tablesError);
       } else if (tablesData) {
         console.log(`Fetched ${tablesData.length} tables from database`);
         setTables(tablesData);
@@ -37,14 +35,12 @@ export const useRealtimeUpdates = () => {
       const { data: promptsData, error: promptsError } = await supabase
         .from('prompts')
         .select('*')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
       
       if (promptsError) {
-        if (promptsError.code === '42501') {
-          console.log('Permission denied for prompts, but continuing...');
-        } else {
-          console.error('Error fetching prompts:', promptsError);
-        }
+        // Normal operation: just log the error and continue
+        console.log('Error fetching prompts:', promptsError);
       } else if (promptsData) {
         console.log(`Fetched ${promptsData.length} prompts from database`, promptsData);
         setPrompts(promptsData);
@@ -57,17 +53,15 @@ export const useRealtimeUpdates = () => {
         .order('created_at', { ascending: false });
       
       if (announcementsError) {
-        if (announcementsError.code === '42501') {
-          console.log('Permission denied for announcements, but continuing...');
-        } else {
-          console.error('Error fetching announcements:', announcementsError);
-        }
+        // Normal operation: just log the error and continue
+        console.log('Error fetching announcements:', announcementsError);
       } else if (announcementsData) {
         console.log(`Fetched ${announcementsData.length} announcements from database`);
         setAnnouncements(announcementsData);
       }
 
       setIsInitialized(true);
+      setLastRefreshTime(Date.now());
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
     }
@@ -90,9 +84,9 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for tables:', payload);
-          await fetchInitialData();
+          fetchInitialData();
         }
       );
       
@@ -100,9 +94,9 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'prompts' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for prompts:', payload);
-          await fetchInitialData();
+          fetchInitialData();
         }
       );
       
@@ -110,13 +104,13 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'announcements' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for announcements:', payload);
-          await fetchInitialData();
+          fetchInitialData();
         }
       );
 
-      // Subscribe to the channel with status tracking and error handling
+      // Subscribe to the channel with error handling
       newChannel
         .subscribe(async (status) => {
           console.log('Supabase realtime subscription status:', status);
@@ -124,7 +118,7 @@ export const useRealtimeUpdates = () => {
           if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to realtime updates!');
             setRealtimeStatus('connected');
-            await fetchInitialData(); // Fetch data once successfully subscribed
+            await fetchInitialData();
           } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
             console.error('Supabase realtime subscription issue:', status);
             setRealtimeStatus('error');
@@ -150,6 +144,21 @@ export const useRealtimeUpdates = () => {
       return null;
     }
   };
+
+  // Poll for updates as a fallback to realtime
+  useEffect(() => {
+    // Refresh every 10 seconds as a fallback
+    const interval = setInterval(() => {
+      const now = Date.now();
+      // Only refresh if it's been more than 10 seconds since the last refresh
+      if (now - lastRefreshTime > 10000) {
+        console.log('Polling for updates...');
+        fetchInitialData();
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [lastRefreshTime]);
 
   useEffect(() => {
     console.log('Initializing realtime updates...');
