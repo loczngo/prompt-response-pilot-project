@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, Seat } from '@/lib/mockDb';
@@ -46,9 +45,8 @@ export const useTableManagement = (userTableNumber?: number) => {
             isDealer: seat.is_dealer || false,
             dealerHandsLeft: undefined
           })),
-          // The current_prompt_id field doesn't exist in the database
-          // We'll set it to undefined to match our Table type
-          currentPromptId: undefined
+          // Handle the current_prompt_id field if it exists in the database
+          currentPromptId: table.current_prompt_id || undefined
         }));
         
         setTables(typedTables);

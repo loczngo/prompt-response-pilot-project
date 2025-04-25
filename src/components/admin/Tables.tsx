@@ -85,16 +85,36 @@ const Tables = () => {
   const showTableSelector = currentUser?.role === 'super-admin';
   const isTableAdminWithoutTable = currentUser?.role === 'table-admin' && !currentUser?.tableNumber;
 
-  const handleSendPrompt = () => {
+  const handleSendPrompt = async () => {
     if (!selectedTable || !selectedPromptId) return;
     
-    updateTable(selectedTable.id, { currentPromptId: selectedPromptId });
-    refreshTables();
-    
-    toast({
-      title: "Prompt Sent",
-      description: "The prompt has been sent to the table.",
-    });
+    try {
+      console.log(`Sending prompt ${selectedPromptId} to table ${selectedTable.id}`);
+      
+      const { error } = await supabase
+        .from('tables')
+        .update({ current_prompt_id: selectedPromptId })
+        .eq('id', selectedTable.id);
+      
+      if (error) {
+        console.error('Error sending prompt:', error);
+        throw error;
+      }
+      
+      refreshTables();
+      
+      toast({
+        title: "Prompt Sent",
+        description: "The prompt has been sent to the table.",
+      });
+    } catch (error) {
+      console.error('Error sending prompt:', error);
+      toast({
+        title: "Error Sending Prompt",
+        description: "Failed to send prompt. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSendMessage = () => {

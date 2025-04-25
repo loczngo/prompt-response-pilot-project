@@ -52,28 +52,40 @@ const GuestInterface = () => {
       return;
     }
 
+    // Find the active prompt that is either global or targeted to this table
+    // First, we'll look for all active prompts for this table
     console.log('Filtering prompts for table:', user.tableNumber);
-    const tablePrompts = prompts.filter(p => 
+    const activePrompts = prompts.filter(p => 
       p.status === 'active' && 
       (p.target_table === null || p.target_table === user.tableNumber)
     );
-
-    console.log('Active prompts for this table:', tablePrompts);
-    if (tablePrompts.length > 0) {
-      const latestPrompt = tablePrompts[0];
+    
+    console.log('Active prompts for this table:', activePrompts);
+    
+    // Display the most recent active prompt
+    if (activePrompts.length > 0) {
+      // Sort by created_at (newest first) to always show the most recent prompt
+      const sortedPrompts = [...activePrompts].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      const latestPrompt = sortedPrompts[0];
       console.log('Setting current prompt to:', latestPrompt);
       
-      // Always update the current prompt when a new one is found
+      // Update current prompt and reset response state
       setCurrentPrompt(latestPrompt);
-      setSelectedResponse(null);
-      setHasResponded(false);
+      // Only reset response if it's a new prompt
+      if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
+        setSelectedResponse(null);
+        setHasResponded(false);
+      }
     } else {
       // Only clear the prompt if there are no active prompts
       setCurrentPrompt(null);
       setSelectedResponse(null);
       setHasResponded(false);
     }
-  }, [user, tables, prompts]);
+  }, [user, tables, prompts, currentPrompt]);
 
   useEffect(() => {
     if (!user?.tableNumber || !announcements.length) return;
@@ -83,7 +95,12 @@ const GuestInterface = () => {
     );
 
     if (tableAnnouncements.length > 0) {
-      const latestAnnouncement = tableAnnouncements[0];
+      // Sort announcements by creation date (newest first)
+      const sortedAnnouncements = [...tableAnnouncements].sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      const latestAnnouncement = sortedAnnouncements[0];
       console.log('Setting last announcement to:', latestAnnouncement.text);
       
       if (!lastAnnouncement || latestAnnouncement.text !== lastAnnouncement) {
