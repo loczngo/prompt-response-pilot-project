@@ -10,6 +10,7 @@ export const useRealtimeUpdates = () => {
   const [announcements, setAnnouncements] = useSharedState<any[]>('announcements', []);
   const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Function to fetch initial data
   const fetchInitialData = async () => {
@@ -22,7 +23,11 @@ export const useRealtimeUpdates = () => {
         .select('*');
       
       if (tablesError) {
-        console.error('Error fetching tables:', tablesError);
+        if (tablesError.code === '42501') {
+          console.log('Permission denied for tables, but continuing...');
+        } else {
+          console.error('Error fetching tables:', tablesError);
+        }
       } else if (tablesData) {
         console.log(`Fetched ${tablesData.length} tables from database`);
         setTables(tablesData);
@@ -35,9 +40,13 @@ export const useRealtimeUpdates = () => {
         .order('created_at', { ascending: false });
       
       if (promptsError) {
-        console.error('Error fetching prompts:', promptsError);
+        if (promptsError.code === '42501') {
+          console.log('Permission denied for prompts, but continuing...');
+        } else {
+          console.error('Error fetching prompts:', promptsError);
+        }
       } else if (promptsData) {
-        console.log(`Fetched ${promptsData.length} prompts from database`);
+        console.log(`Fetched ${promptsData.length} prompts from database`, promptsData);
         setPrompts(promptsData);
       }
 
@@ -48,11 +57,17 @@ export const useRealtimeUpdates = () => {
         .order('created_at', { ascending: false });
       
       if (announcementsError) {
-        console.error('Error fetching announcements:', announcementsError);
+        if (announcementsError.code === '42501') {
+          console.log('Permission denied for announcements, but continuing...');
+        } else {
+          console.error('Error fetching announcements:', announcementsError);
+        }
       } else if (announcementsData) {
         console.log(`Fetched ${announcementsData.length} announcements from database`);
         setAnnouncements(announcementsData);
       }
+
+      setIsInitialized(true);
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
     }
@@ -165,6 +180,7 @@ export const useRealtimeUpdates = () => {
     prompts, 
     announcements, 
     realtimeStatus,
-    refreshData
+    refreshData,
+    isInitialized
   };
 };

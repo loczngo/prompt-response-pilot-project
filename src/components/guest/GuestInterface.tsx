@@ -26,6 +26,13 @@ const GuestInterface = () => {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
 
+  // Log updates for debugging
+  useEffect(() => {
+    console.log("User table number:", user?.tableNumber);
+    console.log("Tables:", tables);
+    console.log("All prompts:", prompts);
+  }, [user, tables, prompts]);
+
   useEffect(() => {
     if (!user?.tableNumber) {
       console.log('No table number assigned to user');
@@ -39,38 +46,53 @@ const GuestInterface = () => {
       return;
     }
 
+    // Filter active prompts for this table (or global prompts)
     console.log('Filtering prompts for table:', user.tableNumber);
     const tablePrompts = prompts.filter(p => 
       p.status === 'active' && 
       (p.target_table === null || p.target_table === user.tableNumber)
     );
 
-    console.log('Active prompts for this table:', tablePrompts);
+    console.log('Filtered prompts for this table:', tablePrompts);
+    
     if (tablePrompts.length > 0) {
-      const latestPrompt = tablePrompts[0];
+      // Sort by most recent first if needed
+      const sortedPrompts = [...tablePrompts].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      const latestPrompt = sortedPrompts[0];
       console.log('Setting current prompt to:', latestPrompt);
       
       setCurrentPrompt(latestPrompt);
-      setSelectedResponse(null);
       setHasResponded(false);
     } else {
+      console.log('No active prompts found for this table');
       setCurrentPrompt(null);
-      setSelectedResponse(null);
-      setHasResponded(false);
     }
   }, [user, tables, prompts]);
 
+  // Handle announcements
   useEffect(() => {
     if (!user?.tableNumber || !announcements.length) return;
 
+    console.log('Processing announcements for table:', user.tableNumber);
     const tableAnnouncements = announcements.filter(a => 
       a.target_table === null || a.target_table === user.tableNumber
     );
 
+    console.log('Filtered announcements:', tableAnnouncements);
+
     if (tableAnnouncements.length > 0) {
-      const latestAnnouncement = tableAnnouncements[0];
+      // Sort by most recent first
+      const sortedAnnouncements = [...tableAnnouncements].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      const latestAnnouncement = sortedAnnouncements[0];
       
       if (!lastAnnouncement || latestAnnouncement.text !== lastAnnouncement) {
+        console.log('Showing new announcement:', latestAnnouncement.text);
         setLastAnnouncement(latestAnnouncement.text);
         setShowAnnouncement(true);
 
@@ -119,6 +141,11 @@ const GuestInterface = () => {
       });
     }
   };
+
+  // Force refresh data on initial load
+  useEffect(() => {
+    refreshData();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
