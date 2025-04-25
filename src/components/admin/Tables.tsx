@@ -89,7 +89,7 @@ const Tables = () => {
       id: tables.length * 100 + i + 1,
       tableId: newTableId,
       code: String.fromCharCode(65 + i),
-      status: 'available',
+      status: 'available' as const,  // Using as const to ensure correct typing
       isDealer: false,
       userId: undefined,
       dealerHandsLeft: 0
