@@ -7,6 +7,7 @@ import {
   authenticateGuest,
   getUsers
 } from '@/lib/mockDb';
+import { supabase } from '@/integrations/supabase/client';
 
 type AuthContextType = {
   user: User | null;
@@ -34,7 +35,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('prs_auth_user');
       }
     }
+    
+    // Check for Supabase auth session
+    const checkSupabaseSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        // If we have a Supabase session but no local user, create one
+        if (!savedUser) {
+          const supabaseUser = data.session.user;
+          const guestUser: User = {
+            id: supabaseUser.id,
+            firstName: supabaseUser.user_metadata.first_name || supabaseUser.user_metadata.username,
+            username: supabaseUser.user_metadata.username,
+            role: 'guest',
+            status: 'active'
+          };
+          setUser(guestUser);
+          sessionStorage.setItem('prs_auth_user', JSON.stringify(guestUser));
+        }
+      }
+    };
+    
+    checkSupabaseSession();
     setIsLoading(false);
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          const supabaseUser = session.user;
+          const guestUser: User = {
+            id: supabaseUser.id,
+            firstName: supabaseUser.user_metadata.first_name || supabaseUser.user_metadata.username,
+            username: supabaseUser.user_metadata.username,
+            role: 'guest',
+            status: 'active'
+          };
+          setUser(guestUser);
+          sessionStorage.setItem('prs_auth_user', JSON.stringify(guestUser));
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          sessionStorage.removeItem('prs_auth_user');
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loginAdmin = async (username: string, password: string) => {
@@ -108,13 +156,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    sessionStorage.removeItem('prs_auth_user');
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    });
+  const logout = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear local state
+      setUser(null);
+      sessionStorage.removeItem('prs_auth_user');
+      
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout Error",
+        description: "Failed to log out properly",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

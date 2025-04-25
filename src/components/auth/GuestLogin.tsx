@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 const GuestLogin = ({ onBack }: { onBack: () => void }) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,13 +22,17 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
 
     try {
       if (isSignUp) {
-        // Simplified sign up for guest user
+        // Create a fake email from username for Supabase (since it requires an email format)
+        const fakeEmail = `${username.replace(/\s+/g, '_')}@promptresponse.demo`;
+        
+        // Sign up new guest user with username as identifier
         const { error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: fakeEmail,
           password,
           options: {
             data: {
-              first_name: name,
+              first_name: name || username,
+              username: username,
               role: 'guest'
             }
           }
@@ -44,9 +48,12 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         // Automatically switch to sign in mode after successful registration
         setIsSignUp(false);
       } else {
+        // Find the user's email based on username (for sign in)
+        const fakeEmail = `${username.replace(/\s+/g, '_')}@promptresponse.demo`;
+        
         // Sign in existing guest
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
+          email: fakeEmail,
           password
         });
 
@@ -80,25 +87,23 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         <CardContent className="space-y-4">
           {isSignUp && (
             <div className="space-y-2">
-              <Label htmlFor="name">Your Name</Label>
+              <Label htmlFor="name">Your Name (Optional)</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
-                required={isSignUp}
               />
             </div>
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
               required
             />
           </div>
