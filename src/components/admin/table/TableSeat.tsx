@@ -14,11 +14,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface TableSeatProps {
   seat: Seat;
+  tableId: number;
   onSeatStatusToggle: () => void;
 }
 
 export const TableSeat: React.FC<TableSeatProps> = ({ 
   seat,
+  tableId,
   onSeatStatusToggle
 }) => {
   const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : null;

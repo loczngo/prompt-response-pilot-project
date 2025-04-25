@@ -24,6 +24,7 @@ export interface Seat {
 export interface Table {
   id: number;
   status: 'active' | 'inactive';
+  name?: string;
   seats: Seat[];
   currentPromptId?: string;
 }

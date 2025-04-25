@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/router';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -25,11 +26,11 @@ import Sidebar from './Sidebar';
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const { user: currentUser, logout } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    navigate('/login');
   };
 
   return (

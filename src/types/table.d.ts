@@ -1,5 +1,4 @@
 
-
 import { Table, Seat, User, Response, Prompt } from '@/lib/mockDb';
 
 export interface TableManagementHook {
