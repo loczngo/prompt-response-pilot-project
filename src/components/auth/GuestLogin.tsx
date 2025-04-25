@@ -39,7 +39,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
 
     try {
       if (isSignUp) {
-        // Sign up new guest user
+        // Sign up new guest user - without redirect URL to avoid cross-origin issues
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -47,8 +47,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
             data: {
               first_name: name,
               role: 'guest'
-            },
-            emailRedirectTo: window.location.origin
+            }
           }
         });
 
@@ -71,16 +70,22 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
       console.error("Authentication error:", error);
       
       // Provide more specific error messages based on the error code
-      if (error.message.includes("Email address") && error.message.includes("invalid")) {
+      if (error.message?.includes("Email address") && error.message?.includes("invalid")) {
         toast({
           title: "Email Error",
           description: "The email address format is not accepted. Please use a different email.",
           variant: "destructive",
         });
+      } else if (error.message?.includes("Load failed")) {
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to authentication server. Please check your internet connection and try again.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
-          description: error.message,
+          description: error.message || "An unexpected error occurred",
           variant: "destructive",
         });
       }
