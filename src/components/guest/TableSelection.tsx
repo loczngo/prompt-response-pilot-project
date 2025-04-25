@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -96,16 +95,15 @@ export const TableSelection = () => {
     }
   };
 
-  const handleReturnToMain = () => {
-    logout()
-      .then(() => {
-        navigate('/');
-      })
-      .catch((error) => {
-        console.error('Error during logout:', error);
-        // Even if logout fails, redirect to home page
-        navigate('/');
-      });
+  const handleReturnToMain = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if logout fails, redirect to home page
+      navigate('/');
+    }
   };
 
   const handleManualRefresh = () => {
