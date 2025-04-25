@@ -11,7 +11,7 @@ interface UseRealtimeBaseProps {
   cacheKey: string;
 }
 
-export const useRealtimeBase = <T>({ tableName, cacheKey }: UseRealtimeBaseProps) => {
+export const useRealtimeBase = <T extends object>({ tableName, cacheKey }: UseRealtimeBaseProps) => {
   const { user } = useAuth();
   const [data, setData] = useSharedState<T[]>(cacheKey, []);
   const [loadingData, setLoadingData] = useState(true);
@@ -27,8 +27,9 @@ export const useRealtimeBase = <T>({ tableName, cacheKey }: UseRealtimeBaseProps
     setHasAttemptedFetch(true);
     
     try {
+      // We need to cast tableName to any to avoid type issues with Supabase client
       const { data: fetchedData, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .select('*')
         .eq('status', 'active');
 
@@ -38,7 +39,7 @@ export const useRealtimeBase = <T>({ tableName, cacheKey }: UseRealtimeBaseProps
           console.log(`Permission denied for ${tableName}, using fallback approach`);
           const cachedData = localStorage.getItem(`cached_${cacheKey}`);
           if (cachedData) {
-            setData(JSON.parse(cachedData));
+            setData(JSON.parse(cachedData) as T[]);
           }
           toast({
             title: "Using cached data",
@@ -53,7 +54,7 @@ export const useRealtimeBase = <T>({ tableName, cacheKey }: UseRealtimeBaseProps
           });
         }
       } else if (fetchedData && Array.isArray(fetchedData)) {
-        setData(fetchedData);
+        setData(fetchedData as T[]);
         localStorage.setItem(`cached_${cacheKey}`, JSON.stringify(fetchedData));
       }
     } catch (err) {
@@ -84,19 +85,27 @@ export const useRealtimeBase = <T>({ tableName, cacheKey }: UseRealtimeBaseProps
     
     const channelId = `${tableName}_updates_${Math.random().toString(36).substring(2, 9)}`;
     
-    const channel = supabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: tableName },
-        () => {
-          setTimeout(() => fetchData(), 1000);
-        }
-      )
-      .subscribe();
+    let channel: RealtimeChannel | null = null;
+    
+    try {
+      channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: tableName as any },
+          () => {
+            setTimeout(() => fetchData(), 1000);
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.error(`Error setting up realtime for ${tableName}:`, err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 

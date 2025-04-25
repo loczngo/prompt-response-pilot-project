@@ -5,8 +5,8 @@ import { useSeatManagement } from './use-seat-management';
 export const useTableSeatSelection = () => {
   const {
     tables,
-    selectedTable,
-    setSelectedTable,
+    selectedTable: tableId,
+    setSelectedTable: setTableId,
     loadingData,
     refreshing,
     hasAttemptedFetch,
@@ -18,17 +18,17 @@ export const useTableSeatSelection = () => {
     setSelectedSeat,
     availableSeats,
     loadingSeats
-  } = useSeatManagement(selectedTable);
+  } = useSeatManagement(tableId);
 
   return {
     tables,
-    selectedTable,
+    selectedTable: tableId,
     selectedSeat,
     availableSeats,
     loadingData: loadingData || loadingSeats,
     refreshing,
     hasAttemptedFetch,
-    setSelectedTable,
+    setSelectedTable: setTableId,
     setSelectedSeat,
     handleRefresh
   };
