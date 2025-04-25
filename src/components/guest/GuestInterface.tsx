@@ -7,12 +7,15 @@ import { GuestHeader } from './components/GuestHeader';
 import { GuestMain } from './components/GuestMain';
 import { usePromptResponse } from '@/hooks/use-prompt-response';
 import { useAnnouncementDisplay } from '@/hooks/use-announcement-display';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from '@/hooks/use-toast';
 
 const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
   const { isEnabled: realtimeEnabled } = useRealtimeEnabler();
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  
   const {
     currentPrompt,
     setCurrentPrompt,
@@ -40,6 +43,17 @@ const GuestInterface = () => {
     console.log("Realtime enabled:", realtimeEnabled);
     console.log("Realtime status:", realtimeStatus);
   }, [user, tables, prompts, realtimeEnabled, realtimeStatus]);
+
+  // Initial data load notification
+  useEffect(() => {
+    if (tables.length > 0 && !isInitialLoadDone) {
+      setIsInitialLoadDone(true);
+      toast({
+        title: "Connected to server",
+        description: "Live updates are now active",
+      });
+    }
+  }, [tables, isInitialLoadDone]);
 
   // Handle prompts
   useEffect(() => {
@@ -92,15 +106,17 @@ const GuestInterface = () => {
     }
   }, [user, announcements]);
 
-  // Force refresh data periodically
+  // Force refresh data periodically and on mount
   useEffect(() => {
+    // Initial refresh after a short delay
     const initialTimer = setTimeout(() => {
       refreshData();
-    }, 1000);
+    }, 500);
     
+    // Regular refresh interval - more frequent for improved responsiveness
     const intervalTimer = setInterval(() => {
       refreshData();
-    }, 3000);
+    }, 2000); // Reduced to 2 seconds for better responsiveness
     
     return () => {
       clearTimeout(initialTimer);

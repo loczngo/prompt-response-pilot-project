@@ -21,7 +21,7 @@ export const useRealtimeUpdates = () => {
   const isGuestUser = user?.role === 'guest';
   
   // Use more aggressive polling for guest users
-  const pollingInterval = isGuestUser ? 3000 : 10000; // 3 seconds for guests, 10 for others
+  const pollingInterval = isGuestUser ? 2000 : 10000; // 2 seconds for guests, 10 for others
 
   // Function to fetch initial data
   const fetchInitialData = async () => {
@@ -63,6 +63,34 @@ export const useRealtimeUpdates = () => {
       } catch (error) {
         console.error('Error in fetchTables:', error);
         setLastError(error);
+      }
+
+      // Try to fetch seats for guest users
+      if (isGuestUser && user?.tableNumber) {
+        try {
+          const { data: fetchedSeats, error: seatsError } = await supabase
+            .from('seats')
+            .select('*')
+            .eq('table_id', user.tableNumber);
+          
+          if (seatsError) {
+            console.log('Error fetching seats:', seatsError);
+            setLastError(seatsError);
+          } else if (fetchedSeats && fetchedSeats.length > 0) {
+            console.log(`Fetched ${fetchedSeats.length} seats for table ${user.tableNumber}`);
+            
+            // Update the seats for this specific table in the tablesData
+            if (tablesData.length > 0) {
+              const tableIndex = tablesData.findIndex(t => t.id === user.tableNumber);
+              if (tableIndex >= 0) {
+                tablesData[tableIndex].seats = fetchedSeats;
+                hasNewData = true;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error in fetchSeats:', error);
+        }
       }
 
       // Try to fetch prompts
@@ -167,6 +195,18 @@ export const useRealtimeUpdates = () => {
           fetchInitialData();
         }
       );
+      
+      // Seats changes - especially important for guest users
+      if (isGuestUser && user?.tableNumber) {
+        newChannel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'seats' },
+          (payload) => {
+            console.log('Received realtime update for seats:', payload);
+            fetchInitialData();
+          }
+        );
+      }
       
       // Prompts changes
       newChannel.on(
