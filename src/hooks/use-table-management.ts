@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, Seat } from '@/lib/mockDb';
@@ -43,7 +44,8 @@ export const useTableManagement = (userTableNumber?: number) => {
             isDealer: seat.is_dealer || false,
             dealerHandsLeft: undefined
           })),
-          currentPromptId: table.current_prompt_id || undefined
+          // Use type assertion to safely access the current_prompt_id
+          currentPromptId: (table as any).current_prompt_id || undefined
         }));
         
         setTables(typedTables);
