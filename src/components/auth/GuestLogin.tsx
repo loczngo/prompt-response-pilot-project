@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
     try {
       if (isSignUp) {
         const { error: signUpError } = await supabase.auth.signUp({
-          email: username,
+          email,
           password,
           options: {
             data: {
@@ -45,20 +46,18 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         setIsSignUp(false);
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: username,
+          email,
           password
         });
 
         if (signInError) throw signInError;
         
-        // If sign in successful, refresh the page to trigger the auth context update
         if (data && data.user) {
           toast({
             title: "Login successful",
             description: "Welcome back!",
           });
           
-          // Force a page reload to update auth context
           navigate('/');
           window.location.reload();
         }
@@ -108,6 +107,18 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter username"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
             />
           </div>
