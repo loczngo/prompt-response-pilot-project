@@ -16,30 +16,13 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [isSignUp, setIsSignUp] = useState(true);
   const { toast } = useToast();
 
-  const validateEmail = (email: string) => {
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate email format
-    if (!validateEmail(email)) {
-      toast({
-        title: "Invalid email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
       if (isSignUp) {
-        // Sign up new guest user - without redirect URL to avoid cross-origin issues
+        // Simplified sign up for guest user
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -55,8 +38,11 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
 
         toast({
           title: "Account created",
-          description: "Please check your email to verify your account.",
+          description: "You can now sign in with your credentials.",
         });
+        
+        // Automatically switch to sign in mode after successful registration
+        setIsSignUp(false);
       } else {
         // Sign in existing guest
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -69,26 +55,11 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
     } catch (error: any) {
       console.error("Authentication error:", error);
       
-      // Provide more specific error messages based on the error code
-      if (error.message?.includes("Email address") && error.message?.includes("invalid")) {
-        toast({
-          title: "Email Error",
-          description: "The email address format is not accepted. Please use a different email.",
-          variant: "destructive",
-        });
-      } else if (error.message?.includes("Load failed")) {
-        toast({
-          title: "Connection Error",
-          description: "Failed to connect to authentication server. Please check your internet connection and try again.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "An unexpected error occurred",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Unable to complete your request. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -130,9 +101,6 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
               placeholder="Enter your email"
               required
             />
-            <p className="text-xs text-muted-foreground">
-              Use a valid email format (e.g. user@example.com)
-            </p>
           </div>
           
           <div className="space-y-2">
