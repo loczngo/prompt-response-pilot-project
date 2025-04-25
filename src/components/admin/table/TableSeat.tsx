@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Seat, User, getUsers } from '@/lib/mockDb';
 import { Button } from '@/components/ui/button';
@@ -16,14 +15,23 @@ interface TableSeatProps {
   seat: Seat;
   tableId: number;
   onSeatStatusToggle: () => void;
+  onToggleStatus?: (seatCode: string) => void;
 }
 
 export const TableSeat: React.FC<TableSeatProps> = ({ 
   seat,
   tableId,
-  onSeatStatusToggle
+  onSeatStatusToggle,
+  onToggleStatus
 }) => {
   const user = seat.userId ? getUsers().find(u => u.id === seat.userId) : null;
+
+  const handleToggle = () => {
+    onSeatStatusToggle();
+    if (onToggleStatus) {
+      onToggleStatus(seat.code);
+    }
+  };
 
   return (
     <div className={`flex flex-col items-center justify-center p-4 border rounded-md ${
@@ -67,7 +75,7 @@ export const TableSeat: React.FC<TableSeatProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onSeatStatusToggle}>
+            <DropdownMenuItem onClick={handleToggle}>
               {seat.status === 'active' ? 'Set Inactive' : 'Set Active'}
             </DropdownMenuItem>
           </DropdownMenuContent>

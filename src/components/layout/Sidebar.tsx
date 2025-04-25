@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useRouter } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { 
   BarChart2, 
   Users, 
@@ -11,8 +11,8 @@ import {
 import { cn } from '@/lib/utils';
 
 const Sidebar = () => {
-  const router = useRouter();
-  const currentPath = window.location.pathname;
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   const menu = [
     { 
@@ -50,9 +50,9 @@ const Sidebar = () => {
                           (item.path !== '/admin' && currentPath.startsWith(item.path));
           
           return (
-            <a
+            <Link
               key={item.path}
-              href={item.path}
+              to={item.path}
               className={cn(
                 "flex items-center px-4 py-2 text-sm font-medium rounded-md",
                 isActive
@@ -62,7 +62,7 @@ const Sidebar = () => {
             >
               <item.icon className="mr-3 h-5 w-5" />
               {item.name}
-            </a>
+            </Link>
           );
         })}
       </nav>
