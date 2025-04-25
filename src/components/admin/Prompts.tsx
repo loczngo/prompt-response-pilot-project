@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { usePrompts } from '@/hooks/use-prompts';
 import { PromptCard } from './prompts/PromptCard';
 import { PromptDialog } from './prompts/PromptDialog';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { useRealtimeEnabler } from '@/hooks/use-realtime-enabler';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,7 +25,8 @@ const Prompts = () => {
   const { prompts, realtimeStatus, refreshData } = useRealtimeUpdates();
   const { toast } = useToast();
   
-  // Fixed TypeScript error: Use strict equality comparison with specific role type
+  useRealtimeEnabler();
+  
   if (user?.role !== 'super-admin' && user?.role !== 'table-admin') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -47,7 +48,6 @@ const Prompts = () => {
     setShowEditPrompt(true);
   };
 
-  // Fixed: Modified to return Promise<boolean> to match the expected type in PromptDialog
   const handleAddPrompt = async (promptData: {
     text: string;
     targetTable: string | null;
@@ -73,7 +73,6 @@ const Prompts = () => {
         description: "The prompt has been successfully created.",
       });
       
-      // Manually refresh data after creating a new prompt
       await refreshData();
       
       return true;

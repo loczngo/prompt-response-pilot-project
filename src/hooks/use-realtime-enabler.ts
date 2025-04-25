@@ -7,6 +7,7 @@ export const useRealtimeEnabler = () => {
     const enableRealtime = async () => {
       try {
         // Enable realtime for all tables
+        // Using empty object as parameter to fix TypeScript error
         await supabase.rpc('enable_realtime', {});
         console.log('Realtime functionality enabled on tables');
       } catch (error) {

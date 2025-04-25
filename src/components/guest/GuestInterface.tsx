@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +6,7 @@ import { BellRing, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { useRealtimeEnabler } from '@/hooks/use-realtime-enabler';
 import { supabase } from '@/integrations/supabase/client';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
@@ -15,6 +15,8 @@ const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
+  
+  useRealtimeEnabler();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
@@ -28,7 +30,6 @@ const GuestInterface = () => {
     console.log('GuestInterface - Tables data:', tables);
   }, [user, prompts, tables]);
 
-  // Manual refresh handler
   const handleManualRefresh = async () => {
     toast({
       title: "Refreshing...",
@@ -37,7 +38,6 @@ const GuestInterface = () => {
     await refreshData();
   };
 
-  // Find user's table and any active prompts
   useEffect(() => {
     if (!user?.tableNumber) {
       console.log('No table number assigned to user');
@@ -59,11 +59,9 @@ const GuestInterface = () => {
 
     console.log('Active prompts for this table:', tablePrompts);
     if (tablePrompts.length > 0) {
-      // Get the most recent prompt
-      const latestPrompt = tablePrompts[0]; // Since we're now ordering by created_at DESC in useRealtimeUpdates
+      const latestPrompt = tablePrompts[0];
       console.log('Setting current prompt to:', latestPrompt);
       
-      // Only reset response state if it's a new prompt
       if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
         setCurrentPrompt(latestPrompt);
         setSelectedResponse(null);
@@ -76,7 +74,6 @@ const GuestInterface = () => {
     }
   }, [user, tables, prompts]);
 
-  // Handle announcements
   useEffect(() => {
     if (!user?.tableNumber || !announcements.length) return;
 
@@ -85,14 +82,13 @@ const GuestInterface = () => {
     );
 
     if (tableAnnouncements.length > 0) {
-      const latestAnnouncement = tableAnnouncements[0]; // Since we're now ordering by created_at DESC
+      const latestAnnouncement = tableAnnouncements[0];
+      console.log('Setting last announcement to:', latestAnnouncement.text);
       
-      // Only show if it's a new announcement or not currently showing
       if (!lastAnnouncement || latestAnnouncement.text !== lastAnnouncement) {
         setLastAnnouncement(latestAnnouncement.text);
         setShowAnnouncement(true);
 
-        // Hide announcement after 10 seconds
         const timer = setTimeout(() => {
           setShowAnnouncement(false);
         }, 10000);
@@ -108,9 +104,8 @@ const GuestInterface = () => {
     try {
       console.log(`Submitting response ${response} for prompt ${currentPrompt.id}`);
       
-      // Store response directly in Supabase
       const { error } = await supabase
-        .from('announcements') // Using announcements as a workaround since responses table doesn't exist yet
+        .from('announcements')
         .insert({
           text: `Response ${response} to prompt ${currentPrompt.id}`,
           target_table: user.tableNumber
@@ -142,7 +137,6 @@ const GuestInterface = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
-      {/* Header */}
       <header className="bg-background p-4 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div>
@@ -173,7 +167,6 @@ const GuestInterface = () => {
       </header>
       
       <main className="flex-1 container mx-auto p-6 flex flex-col items-center justify-center">
-        {/* Realtime Status Banner */}
         {realtimeStatus !== 'connected' && (
           <div className="w-full max-w-xl mb-6">
             <Card className={`border-l-4 ${
@@ -214,7 +207,6 @@ const GuestInterface = () => {
           </div>
         )}
         
-        {/* Announcement Banner */}
         {showAnnouncement && lastAnnouncement && (
           <div className="w-full max-w-xl mb-6 animate-fade-in">
             <Card className="border-l-4 border-l-primary">
@@ -232,7 +224,6 @@ const GuestInterface = () => {
         )}
         
         <div className="w-full max-w-xl">
-          {/* Guest Info Card */}
           <Card className="mb-6 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center space-x-4">
@@ -249,7 +240,6 @@ const GuestInterface = () => {
             </CardContent>
           </Card>
           
-          {/* Prompt Display */}
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle>Current Prompt</CardTitle>
@@ -269,7 +259,6 @@ const GuestInterface = () => {
                 )}
               </div>
               
-              {/* Response Buttons */}
               <div className="flex justify-center space-x-6 mt-8">
                 <button
                   className={`response-button yes ${selectedResponse === 'YES' ? 'selected' : ''}`}
@@ -305,7 +294,6 @@ const GuestInterface = () => {
                 </p>
               )}
 
-              {/* Debug info - only in development */}
               {process.env.NODE_ENV === 'development' && (
                 <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
                   <p>Debug Info:</p>
