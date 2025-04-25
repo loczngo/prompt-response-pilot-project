@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSharedState } from './use-shared-state';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useRealtimeUpdates = () => {
+  const { user } = useAuth();
   const [tables, setTables] = useSharedState<any[]>('tables', []);
   const [prompts, setPrompts] = useSharedState<any[]>('prompts', []);
   const [announcements, setAnnouncements] = useSharedState<any[]>('announcements', []);
@@ -12,11 +14,13 @@ export const useRealtimeUpdates = () => {
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
+  const [errorCount, setErrorCount] = useState(0);
 
   // Function to fetch initial data
   const fetchInitialData = async () => {
     try {
       console.log('Fetching initial data from Supabase...');
+      const isGuestUser = user?.role === 'guest';
       
       // Fetch tables with better error handling
       const { data: tablesData, error: tablesError } = await supabase
@@ -24,11 +28,18 @@ export const useRealtimeUpdates = () => {
         .select('*');
       
       if (tablesError) {
-        // Normal operation: just log the error and continue
         console.log('Error fetching tables:', tablesError);
+        // For guest users, we'll use the cached data from localStorage if available
+        if (isGuestUser && tables.length > 0) {
+          console.log('Using cached tables data for guest user');
+        } else {
+          setErrorCount(prev => prev + 1);
+        }
       } else if (tablesData) {
         console.log(`Fetched ${tablesData.length} tables from database`);
         setTables(tablesData);
+        // Reset error count on successful fetch
+        setErrorCount(0);
       }
 
       // Fetch prompts
@@ -39,11 +50,16 @@ export const useRealtimeUpdates = () => {
         .order('created_at', { ascending: false });
       
       if (promptsError) {
-        // Normal operation: just log the error and continue
         console.log('Error fetching prompts:', promptsError);
+        if (isGuestUser && prompts.length > 0) {
+          console.log('Using cached prompts data for guest user');
+        } else {
+          setErrorCount(prev => prev + 1);
+        }
       } else if (promptsData) {
-        console.log(`Fetched ${promptsData.length} prompts from database`, promptsData);
+        console.log(`Fetched ${promptsData.length} prompts from database:`, promptsData);
         setPrompts(promptsData);
+        setErrorCount(0);
       }
 
       // Fetch announcements
@@ -53,17 +69,33 @@ export const useRealtimeUpdates = () => {
         .order('created_at', { ascending: false });
       
       if (announcementsError) {
-        // Normal operation: just log the error and continue
         console.log('Error fetching announcements:', announcementsError);
+        if (isGuestUser && announcements.length > 0) {
+          console.log('Using cached announcements data for guest user');
+        } else {
+          setErrorCount(prev => prev + 1);
+        }
       } else if (announcementsData) {
         console.log(`Fetched ${announcementsData.length} announcements from database`);
         setAnnouncements(announcementsData);
+        setErrorCount(0);
+      }
+
+      // If we have too many consecutive errors, set status to error
+      if (errorCount >= 3) {
+        setRealtimeStatus('error');
+      } else if (errorCount === 0) {
+        setRealtimeStatus('connected');
       }
 
       setIsInitialized(true);
       setLastRefreshTime(Date.now());
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
+      setErrorCount(prev => prev + 1);
+      if (errorCount >= 3) {
+        setRealtimeStatus('error');
+      }
     }
   };
 
@@ -147,18 +179,21 @@ export const useRealtimeUpdates = () => {
 
   // Poll for updates as a fallback to realtime
   useEffect(() => {
-    // Refresh every 10 seconds as a fallback
+    // For guest users, we'll use a more aggressive polling strategy
+    const isGuestUser = user?.role === 'guest';
+    const pollingInterval = isGuestUser ? 5000 : 10000; // 5 seconds for guests, 10 for others
+    
     const interval = setInterval(() => {
       const now = Date.now();
-      // Only refresh if it's been more than 10 seconds since the last refresh
-      if (now - lastRefreshTime > 10000) {
+      // Only refresh if it's been more than the polling interval since the last refresh
+      if (now - lastRefreshTime > pollingInterval) {
         console.log('Polling for updates...');
         fetchInitialData();
       }
-    }, 10000);
+    }, pollingInterval);
 
     return () => clearInterval(interval);
-  }, [lastRefreshTime]);
+  }, [lastRefreshTime, user]);
 
   useEffect(() => {
     console.log('Initializing realtime updates...');
@@ -176,7 +211,7 @@ export const useRealtimeUpdates = () => {
         supabase.removeChannel(newChannel);
       }
     };
-  }, []);
+  }, [user]); // Re-initialize when user changes
 
   // Expose a function to manually refresh data
   const refreshData = async () => {

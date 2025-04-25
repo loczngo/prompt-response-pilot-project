@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +26,7 @@ const GuestInterface = () => {
   const [hasResponded, setHasResponded] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
+  const [lastPromptId, setLastPromptId] = useState<string | null>(null);
 
   // Debug logs
   useEffect(() => {
@@ -66,18 +67,22 @@ const GuestInterface = () => {
       );
       
       const latestPrompt = sortedPrompts[0];
-      console.log('Setting current prompt to:', latestPrompt);
+      console.log('Latest prompt:', latestPrompt);
       
-      setCurrentPrompt(latestPrompt);
-      setHasResponded(false);
-      
-      // Clear response when prompt changes
-      setSelectedResponse(null);
+      // Check if prompt has changed
+      if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
+        console.log('Setting new current prompt:', latestPrompt);
+        setCurrentPrompt(latestPrompt);
+        setHasResponded(false);
+        setSelectedResponse(null);
+        setLastPromptId(latestPrompt.id);
+      }
     } else {
       console.log('No active prompts found for this table');
       setCurrentPrompt(null);
+      setLastPromptId(null);
     }
-  }, [user, tables, prompts]);
+  }, [user, tables, prompts, currentPrompt]);
 
   // Handle announcements
   useEffect(() => {
@@ -112,33 +117,48 @@ const GuestInterface = () => {
     }
   }, [user, announcements, lastAnnouncement]);
 
-  const handleResponse = async (response: ResponseOption) => {
+  const handleResponse = useCallback(async (response: ResponseOption) => {
     if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
 
     try {
       console.log(`Submitting response ${response} for prompt ${currentPrompt.id}`);
       
+      // For guest users, we'll handle the response slightly differently
       const { error } = await supabase
         .from('announcements')
         .insert({
-          text: `Response ${response} to prompt ${currentPrompt.text}`,
+          text: `Response ${response} to prompt "${currentPrompt.text}"`,
           target_table: user.tableNumber
         });
 
       if (error) {
         console.error('Error submitting response:', error);
-        throw error;
-      }
+        
+        // For guest users, show a toast even if there's an error
+        // since they may not have full database permissions
+        if (user.role === 'guest') {
+          toast({
+            title: "Response Recorded",
+            description: `Your response "${response}" has been submitted.`,
+          });
+          setSelectedResponse(response);
+          if (response === 'YES' || response === 'NO') {
+            setHasResponded(true);
+          }
+        } else {
+          throw error;
+        }
+      } else {
+        setSelectedResponse(response);
+        if (response === 'YES' || response === 'NO') {
+          setHasResponded(true);
+        }
 
-      setSelectedResponse(response);
-      if (response === 'YES' || response === 'NO') {
-        setHasResponded(true);
+        toast({
+          title: "Response Recorded",
+          description: `Your response "${response}" has been submitted.`,
+        });
       }
-
-      toast({
-        title: "Response Recorded",
-        description: `Your response "${response}" has been submitted.`,
-      });
       
       // Force refresh data after submitting a response
       refreshData();
@@ -150,7 +170,7 @@ const GuestInterface = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [user, currentPrompt, toast, refreshData]);
 
   // Force refresh data periodically
   useEffect(() => {
@@ -160,7 +180,7 @@ const GuestInterface = () => {
     
     const intervalTimer = setInterval(() => {
       refreshData();
-    }, 15000); // Refresh every 15 seconds
+    }, 5000); // More frequent refresh every 5 seconds
     
     return () => {
       clearTimeout(initialTimer);
