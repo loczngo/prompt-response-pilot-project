@@ -19,7 +19,7 @@ const AdminPanel = () => {
   useEffect(() => {
     const enableRealtime = async () => {
       try {
-        // Fix the type error by using the correct RPC call with no arguments
+        // Call RPC function without any arguments
         await supabase.rpc('enable_realtime_tables');
         console.log('Realtime functionality enabled on tables');
       } catch (error) {
