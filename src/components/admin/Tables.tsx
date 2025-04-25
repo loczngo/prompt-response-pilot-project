@@ -85,39 +85,16 @@ const Tables = () => {
   const showTableSelector = currentUser?.role === 'super-admin';
   const isTableAdminWithoutTable = currentUser?.role === 'table-admin' && !currentUser?.tableNumber;
 
-  const handleSendPrompt = async () => {
+  const handleSendPrompt = () => {
     if (!selectedTable || !selectedPromptId) return;
     
-    try {
-      console.log(`Sending prompt ${selectedPromptId} to table ${selectedTable.id}`);
-      
-      const { error } = await supabase
-        .from('tables')
-        .update({ 
-          status: selectedTable.status,
-          current_prompt_id: selectedPromptId 
-        })
-        .eq('id', selectedTable.id);
-      
-      if (error) {
-        console.error('Error sending prompt:', error);
-        throw error;
-      }
-      
-      refreshTables();
-      
-      toast({
-        title: "Prompt Sent",
-        description: "The prompt has been sent to the table.",
-      });
-    } catch (error) {
-      console.error('Error sending prompt:', error);
-      toast({
-        title: "Error Sending Prompt",
-        description: "Failed to send prompt. Please try again.",
-        variant: "destructive"
-      });
-    }
+    updateTable(selectedTable.id, { currentPromptId: selectedPromptId });
+    refreshTables();
+    
+    toast({
+      title: "Prompt Sent",
+      description: "The prompt has been sent to the table.",
+    });
   };
 
   const handleSendMessage = () => {
@@ -190,11 +167,6 @@ const Tables = () => {
     });
   };
 
-  const handleRefreshClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
-    event.preventDefault();
-    refreshTables(false);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -205,7 +177,7 @@ const Tables = () => {
               Create New Table
             </Button>
           )}
-          <Button onClick={handleRefreshClick}>
+          <Button onClick={refreshTables}>
             <RefreshCcw className="h-4 w-4 mr-2" />
             Refresh
           </Button>

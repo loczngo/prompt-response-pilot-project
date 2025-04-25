@@ -1,12 +1,12 @@
 
 import { useState, useEffect } from 'react';
-import { Table } from '@/lib/mockDb';
+import { Table, getPrompts } from '@/lib/mockDb';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageSquare } from 'lucide-react';
-import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 interface TableControlsSectionProps {
   selectedTable: Table;
@@ -21,24 +21,34 @@ export const TableControlsSection = ({
   onPromptSelect,
   onSendPrompt,
 }: TableControlsSectionProps) => {
-  // Use the realtime prompts data from useRealtimeUpdates
-  const { prompts } = useRealtimeUpdates();
+  // Use shared state for active prompts to sync across tabs
+  const [activePrompts, setActivePrompts] = useSharedState<ReturnType<typeof getPrompts>>('activePrompts', []);
   const [currentPromptText, setCurrentPromptText] = useState<string | undefined>('');
   
-  // Filter prompts that are active and applicable to this table
-  const activePrompts = prompts
-    .filter(p => p.status === 'active' && (p.target_table === null || p.target_table === selectedTable.id));
-  
-  // Update current prompt text when selected table changes or when prompts update
+  // Periodically refresh prompts and current prompt display
   useEffect(() => {
-    // Find the current prompt for this table
-    if (selectedTable.currentPromptId) {
-      const currentPrompt = prompts.find(p => p.id === selectedTable.currentPromptId);
-      setCurrentPromptText(currentPrompt?.text);
-    } else {
-      setCurrentPromptText(undefined);
-    }
-  }, [selectedTable, prompts]);
+    const updatePrompts = () => {
+      const prompts = getPrompts().filter(p => 
+        p.status === 'active' && 
+        (p.targetTable === null || p.targetTable === selectedTable.id)
+      );
+      setActivePrompts(prompts);
+      
+      // Update current prompt text
+      if (selectedTable.currentPromptId) {
+        const currentPrompt = getPrompts().find(p => p.id === selectedTable.currentPromptId);
+        setCurrentPromptText(currentPrompt?.text);
+      } else {
+        setCurrentPromptText(undefined);
+      }
+    };
+    
+    // Update immediately and then every 1 second for more responsive updates
+    updatePrompts();
+    const interval = setInterval(updatePrompts, 1000);
+    
+    return () => clearInterval(interval);
+  }, [selectedTable, setActivePrompts]);
 
   return (
     <Card className="lg:col-span-1">

@@ -1,56 +1,114 @@
 
-import { useEffect } from 'react';
-import { useTableData } from './table/use-table-data';
-import { useTableStatus } from './table/use-table-status';
-import { useSeatStatus } from './table/use-seat-status';
-import { useTableSelection } from './table/use-table-selection';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Table, getTable, getTables, updateTable, updateTableSeat } from '@/lib/mockDb';
+import { useSharedState } from '@/hooks/use-shared-state';
 
 export const useTableManagement = (userTableNumber?: number) => {
-  const { tables, isLoading, fetchError, fetchTables } = useTableData();
-  const { handleTableStatusToggle } = useTableStatus(fetchTables);
-  const { handleSeatStatusToggle } = useSeatStatus(fetchTables);
-  const {
-    tableNumber,
-    selectedTable,
-    setTableNumber,
-    handleTableSelect
-  } = useTableSelection(tables);
+  // Use shared state for tables to sync across tabs
+  const [tables, setTables] = useSharedState<Table[]>('tables', getTables());
+  const [tableNumber, setTableNumber] = useState<string>('');
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const { toast } = useToast();
 
   // Auto-select assigned table if user is a table admin
   useEffect(() => {
     if (userTableNumber) {
       setTableNumber(userTableNumber.toString());
-      fetchTables(false).then(() => {
-        // Find this table in our data
-        const table = tables.find(t => t.id === userTableNumber);
-        if (table) {
-          handleTableSelect();
+      const table = getTable(userTableNumber);
+      if (table) {
+        setSelectedTable(table);
+      }
+    }
+  }, [userTableNumber]);
+
+  // Set up polling for real-time updates
+  useEffect(() => {
+    const refreshData = () => {
+      const freshTables = getTables();
+      setTables(freshTables);
+      
+      // Also update selected table if we have one
+      if (selectedTable) {
+        const updatedTable = getTable(selectedTable.id);
+        if (updatedTable) {
+          setSelectedTable(updatedTable);
         }
+      }
+    };
+    
+    // Check for updates every 1 second for more responsive updates
+    const interval = setInterval(refreshData, 1000);
+    
+    return () => clearInterval(interval);
+  }, [selectedTable, setTables]);
+
+  const refreshTables = () => {
+    const freshTables = getTables();
+    setTables(freshTables);
+    if (selectedTable) {
+      setSelectedTable(getTable(selectedTable.id));
+    }
+  };
+
+  const handleTableSelect = () => {
+    if (!tableNumber) {
+      setSelectedTable(null);
+      return;
+    }
+    
+    const table = getTable(Number(tableNumber));
+    setSelectedTable(table || null);
+    
+    if (!table) {
+      toast({
+        title: "Table Not Found",
+        description: `Table ${tableNumber} does not exist.`,
+        variant: "destructive",
       });
     }
-  }, [userTableNumber, fetchTables, tables, setTableNumber, handleTableSelect]);
+  };
 
-  // Initial data fetch
-  useEffect(() => {
-    // Initial fetch
-    fetchTables(false);
+  const handleTableStatusToggle = (tableId: number) => {
+    const table = getTable(tableId);
+    if (!table) return;
     
-    // Setup aggressive polling as backup for realtime updates
-    const pollingInterval = setInterval(() => {
-      fetchTables(false);
-    }, 10000); // Poll every 10 seconds as a fallback
+    const newStatus = table.status === 'active' ? 'inactive' : 'active';
     
-    return () => clearInterval(pollingInterval);
-  }, [fetchTables]);
+    updateTable(tableId, { status: newStatus });
+    refreshTables();
+    
+    toast({
+      title: `Table ${tableId} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
+      description: `Table ${tableId} is now ${newStatus}.`,
+    });
+  };
+
+  const handleSeatStatusToggle = (tableId: number, seatCode: string) => {
+    const table = getTable(tableId);
+    if (!table) return;
+    
+    const seat = table.seats.find(s => s.code === seatCode);
+    if (!seat) return;
+    
+    const newStatus = seat.status === 'active' ? 'inactive' : 'active';
+    
+    updateTableSeat(tableId, seatCode, { status: newStatus });
+    refreshTables();
+    
+    toast({
+      title: `Seat ${seatCode} ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
+      description: `Seat ${seatCode} is now ${newStatus}.`,
+    });
+  };
 
   return {
     tables,
     tableNumber,
     selectedTable,
-    isLoading,
-    fetchError,
     setTableNumber,
-    refreshTables: fetchTables,
+    setSelectedTable,
+    refreshTables,
     handleTableSelect,
     handleTableStatusToggle,
     handleSeatStatusToggle
