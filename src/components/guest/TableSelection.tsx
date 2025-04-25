@@ -44,10 +44,13 @@ export const TableSelection = () => {
     const fetchSeats = async () => {
       if (!selectedTable) return;
 
+      // Convert selectedTable from string to number for the database query
+      const tableId = parseInt(selectedTable, 10);
+
       const { data, error } = await supabase
         .from('seats')
         .select('*')
-        .eq('table_id', selectedTable)
+        .eq('table_id', tableId)
         .eq('status', 'active')
         .is('user_id', null);
 
@@ -67,11 +70,14 @@ export const TableSelection = () => {
 
     setLoading(true);
     try {
+      // Convert selectedTable from string to number for the database update
+      const tableId = parseInt(selectedTable, 10);
+      
       // Update profile with table and seat
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          table_number: parseInt(selectedTable),
+          table_number: tableId,
           seat_code: selectedSeat
         })
         .eq('id', user.id);
@@ -82,7 +88,7 @@ export const TableSelection = () => {
       const { error: seatError } = await supabase
         .from('seats')
         .update({ user_id: user.id })
-        .eq('table_id', selectedTable)
+        .eq('table_id', tableId)
         .eq('code', selectedSeat);
 
       if (seatError) throw seatError;
