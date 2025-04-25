@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Table } from '@/lib/mockDb';
+import { Table, Seat } from '@/lib/mockDb';
 import { useSharedState } from '@/hooks/use-shared-state';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,7 +32,24 @@ export const useTableManagement = (userTableNumber?: number) => {
         });
       } else if (tablesData) {
         console.log(`Retrieved ${tablesData.length} tables from database`);
-        setTables(tablesData);
+        
+        // Transform and validate the data to match our Table type
+        const typedTables: Table[] = tablesData.map(table => ({
+          id: table.id,
+          // Ensure status is either 'active' or 'inactive'
+          status: table.status === 'active' ? 'active' : 'inactive',
+          seats: (table.seats || []).map(seat => ({
+            code: seat.code,
+            userId: seat.user_id || undefined,
+            // Ensure seat status is either 'active' or 'inactive'
+            status: seat.status === 'active' ? 'active' : 'inactive',
+            isDealer: seat.is_dealer || false,
+            dealerHandsLeft: undefined
+          })),
+          currentPromptId: table.current_prompt_id
+        }));
+        
+        setTables(typedTables);
         setLastFetched(Date.now());
       }
     } catch (error) {
@@ -185,7 +202,6 @@ export const useTableManagement = (userTableNumber?: number) => {
     selectedTable,
     isLoading,
     setTableNumber,
-    setSelectedTable,
     refreshTables,
     handleTableSelect,
     handleTableStatusToggle,
