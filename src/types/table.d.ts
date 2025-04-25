@@ -5,6 +5,7 @@ export interface TableManagementHook {
   tables: Table[];
   tableNumber: string;
   selectedTable: Table | null;
+  isLoading: boolean;
   setTableNumber: (value: string) => void;
   refreshTables: () => void;
   handleTableSelect: () => void;

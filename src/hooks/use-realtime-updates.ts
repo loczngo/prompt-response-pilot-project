@@ -1,8 +1,9 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSharedState } from './use-shared-state';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { toast } from './use-toast';
 
 export const useRealtimeUpdates = () => {
   const [tables, setTables] = useSharedState<any[]>('tables', []);
@@ -12,7 +13,7 @@ export const useRealtimeUpdates = () => {
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   // Function to fetch initial data
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     try {
       console.log('Fetching initial data from Supabase...');
       
@@ -23,9 +24,16 @@ export const useRealtimeUpdates = () => {
       
       if (tablesError) {
         console.error('Error fetching tables:', tablesError);
+        toast({
+          title: "Data Loading Error",
+          description: "Could not load tables information",
+          variant: "destructive"
+        });
       } else if (tablesData) {
         console.log(`Fetched ${tablesData.length} tables from database`);
         setTables(tablesData);
+      } else {
+        console.log("No tables data returned, but no error either");
       }
 
       // Fetch prompts
@@ -56,10 +64,10 @@ export const useRealtimeUpdates = () => {
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
     }
-  };
+  }, [setAnnouncements, setPrompts, setTables]);
 
   // Function to setup realtime subscriptions
-  const setupRealtimeSubscriptions = () => {
+  const setupRealtimeSubscriptions = useCallback(() => {
     try {
       // Remove any existing channel subscription to prevent duplicates
       if (channel) {
@@ -75,9 +83,19 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for tables:', payload);
-          await fetchInitialData();
+          fetchInitialData().catch(err => console.error('Failed to refresh data after tables update:', err));
+        }
+      );
+      
+      // Seats changes
+      newChannel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'seats' },
+        (payload) => {
+          console.log('Received realtime update for seats:', payload);
+          fetchInitialData().catch(err => console.error('Failed to refresh data after seats update:', err));
         }
       );
       
@@ -85,9 +103,9 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'prompts' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for prompts:', payload);
-          await fetchInitialData();
+          fetchInitialData().catch(err => console.error('Failed to refresh data after prompts update:', err));
         }
       );
       
@@ -95,9 +113,9 @@ export const useRealtimeUpdates = () => {
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'announcements' },
-        async (payload) => {
+        (payload) => {
           console.log('Received realtime update for announcements:', payload);
-          await fetchInitialData();
+          fetchInitialData().catch(err => console.error('Failed to refresh data after announcements update:', err));
         }
       );
 
@@ -109,19 +127,13 @@ export const useRealtimeUpdates = () => {
           if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to realtime updates!');
             setRealtimeStatus('connected');
-            await fetchInitialData(); // Fetch data once successfully subscribed
+            await fetchInitialData();
           } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
             console.error('Supabase realtime subscription issue:', status);
             setRealtimeStatus('error');
             
             // Try to fetch data anyway
             await fetchInitialData();
-            
-            // Auto-reconnect after a delay
-            setTimeout(() => {
-              console.log('Attempting to reconnect realtime subscription...');
-              setupRealtimeSubscriptions();
-            }, 5000);
           }
         });
       
@@ -134,10 +146,11 @@ export const useRealtimeUpdates = () => {
       setRealtimeStatus('error');
       return null;
     }
-  };
+  }, [channel, fetchInitialData]);
 
+  // Set up polling as a fallback for realtime updates
   useEffect(() => {
-    console.log('Initializing realtime updates...');
+    console.log('Initializing realtime updates and fallback polling...');
     
     // Initial data fetch
     fetchInitialData();
@@ -145,14 +158,23 @@ export const useRealtimeUpdates = () => {
     // Setup real-time subscriptions
     const newChannel = setupRealtimeSubscriptions();
 
+    // Set up a polling mechanism as a fallback
+    const pollingInterval = setInterval(() => {
+      if (realtimeStatus !== 'connected') {
+        console.log('Polling for updates as realtime connection is not active');
+        fetchInitialData().catch(err => console.error('Failed to poll for updates:', err));
+      }
+    }, 10000); // Poll every 10 seconds if realtime is not working
+
     // Clean up on component unmount
     return () => {
-      console.log('Cleaning up realtime subscriptions');
+      console.log('Cleaning up realtime subscriptions and polling');
+      clearInterval(pollingInterval);
       if (newChannel) {
         supabase.removeChannel(newChannel);
       }
     };
-  }, []);
+  }, [fetchInitialData, setupRealtimeSubscriptions, realtimeStatus]);
 
   // Expose a function to manually refresh data
   const refreshData = async () => {
