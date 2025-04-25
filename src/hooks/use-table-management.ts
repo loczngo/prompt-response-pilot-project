@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Table } from '@/types/table';
+import { Table } from '@/lib/mockDb';
 import { useSharedState } from '@/hooks/use-shared-state';
 import { supabase } from '@/integrations/supabase/client';
 

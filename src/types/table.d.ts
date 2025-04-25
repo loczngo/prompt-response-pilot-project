@@ -1,6 +1,8 @@
 
 import { Table, Seat, User } from '@/lib/mockDb';
 
+export type { Table, Seat, User };
+
 export interface TableManagementHook {
   tables: Table[];
   tableNumber: string;
