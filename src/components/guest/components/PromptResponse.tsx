@@ -1,8 +1,10 @@
 
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-import { useEffect, useState, useRef } from 'react';
+import { PromptDisplay } from './prompt/PromptDisplay';
+import { PromptResponseButtons } from './prompt/PromptResponseButtons';
+import { PromptDebugInfo } from './prompt/PromptDebugInfo';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
@@ -23,11 +25,9 @@ export const PromptResponse = ({
   const lastPromptRef = useRef<any | null>(null);
   const promptUpdateCount = useRef(0);
 
-  // Update display prompt whenever currentPrompt changes
   useEffect(() => {
     console.log("Current prompt in PromptResponse:", currentPrompt);
     
-    // Only update if the prompt is different
     if (currentPrompt && (!lastPromptRef.current || currentPrompt.id !== lastPromptRef.current.id)) {
       console.log("Setting new display prompt:", currentPrompt);
       setDisplayPrompt(currentPrompt);
@@ -41,7 +41,6 @@ export const PromptResponse = ({
     }
   }, [currentPrompt]);
 
-  // Debug log for changes to the display prompt
   useEffect(() => {
     console.log("Display prompt state updated:", displayPrompt);
   }, [displayPrompt]);
@@ -58,57 +57,14 @@ export const PromptResponse = ({
       <Separator />
       
       <CardContent className="p-6">
-        <div className="teleprompter p-4 bg-muted/30 rounded-lg min-h-[100px] flex items-center justify-center">
-          {displayPrompt ? (
-            <div className="text-lg text-center">
-              <p className="font-medium">{displayPrompt.text}</p>
-              <p className="text-xs text-muted-foreground mt-2">Prompt ID: {displayPrompt.id}</p>
-            </div>
-          ) : (
-            <p className="text-muted-foreground italic">Waiting for prompt...</p>
-          )}
-        </div>
+        <PromptDisplay displayPrompt={displayPrompt} />
         
-        <div className="flex justify-center space-x-6 mt-8">
-          <button
-            className={cn(
-              "px-6 py-3 rounded-lg font-medium transition-all",
-              selectedResponse === 'YES' 
-                ? "bg-green-500 text-white shadow-md" 
-                : "bg-muted hover:bg-green-100"
-            )}
-            onClick={() => onResponse('YES')}
-            disabled={!displayPrompt || hasResponded}
-          >
-            YES
-          </button>
-          
-          <button
-            className={cn(
-              "px-6 py-3 rounded-lg font-medium transition-all",
-              selectedResponse === 'NO' 
-                ? "bg-red-500 text-white shadow-md" 
-                : "bg-muted hover:bg-red-100"
-            )}
-            onClick={() => onResponse('NO')}
-            disabled={!displayPrompt || hasResponded}
-          >
-            NO
-          </button>
-          
-          <button
-            className={cn(
-              "px-6 py-3 rounded-lg font-medium transition-all",
-              selectedResponse === 'SERVICE' 
-                ? "bg-blue-500 text-white shadow-md" 
-                : "bg-muted hover:bg-blue-100"
-            )}
-            onClick={() => onResponse('SERVICE')}
-            disabled={!displayPrompt}
-          >
-            SERVICE
-          </button>
-        </div>
+        <PromptResponseButtons
+          selectedResponse={selectedResponse}
+          displayPrompt={displayPrompt}
+          hasResponded={hasResponded}
+          onResponse={onResponse}
+        />
         
         {selectedResponse && (
           <p className="text-center mt-6 text-sm text-muted-foreground">
@@ -119,11 +75,10 @@ export const PromptResponse = ({
           </p>
         )}
 
-        <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
-          <p>Debug Info:</p>
-          <p>Current Prompt: {displayPrompt ? `ID: ${displayPrompt.id}, Text: ${displayPrompt.text}` : 'None'}</p>
-          <p>Updates: {promptUpdateCount.current}</p>
-        </div>
+        <PromptDebugInfo
+          displayPrompt={displayPrompt}
+          promptUpdateCount={promptUpdateCount.current}
+        />
       </CardContent>
     </Card>
   );
