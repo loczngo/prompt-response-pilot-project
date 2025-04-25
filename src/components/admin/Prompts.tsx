@@ -22,11 +22,8 @@ const Prompts = () => {
     user?.role, 
     user?.tableNumber
   );
-  const { prompts: realTimePrompts, realtimeStatus } = useRealtimeUpdates();
+  const { prompts, realtimeStatus, refreshData } = useRealtimeUpdates();
   const { toast } = useToast();
-  
-  // Use realTimePrompts instead of getPrompts()
-  const prompts = realTimePrompts;
   
   // Fixed TypeScript error: Use strict equality comparison with specific role type
   if (user?.role !== 'super-admin' && user?.role !== 'table-admin') {
@@ -76,6 +73,9 @@ const Prompts = () => {
         description: "The prompt has been successfully created.",
       });
       
+      // Manually refresh data after creating a new prompt
+      await refreshData();
+      
       return true;
     } catch (error) {
       console.error('Error creating prompt:', error);
@@ -94,9 +94,23 @@ const Prompts = () => {
         <div className={`p-2 text-sm rounded-md mb-4 ${
           realtimeStatus === 'connecting' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
         }`}>
-          {realtimeStatus === 'connecting' 
-            ? "Connecting to realtime updates..." 
-            : "Error connecting to realtime updates. Some features may not work properly."}
+          <div className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${
+              realtimeStatus === 'connecting' ? 'bg-amber-600 animate-pulse' : 'bg-red-600'
+            }`}></div>
+            <span>
+              {realtimeStatus === 'connecting' 
+                ? "Connecting to realtime updates..." 
+                : "Error connecting to realtime updates. Some features may not work properly."}
+            </span>
+          </div>
+          {realtimeStatus === 'error' && (
+            <div className="mt-1 text-xs">
+              <Button variant="link" className="h-auto p-0 text-red-800" onClick={refreshData}>
+                Retry connection
+              </Button>
+            </div>
+          )}
         </div>
       )}
       

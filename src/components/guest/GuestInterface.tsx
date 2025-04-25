@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { BellRing } from 'lucide-react';
+import { BellRing, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +14,7 @@ type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const { tables, prompts, announcements, realtimeStatus } = useRealtimeUpdates();
+  const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
@@ -26,6 +27,15 @@ const GuestInterface = () => {
     console.log('GuestInterface - Prompts data:', prompts);
     console.log('GuestInterface - Tables data:', tables);
   }, [user, prompts, tables]);
+
+  // Manual refresh handler
+  const handleManualRefresh = async () => {
+    toast({
+      title: "Refreshing...",
+      description: "Fetching the latest data from the server.",
+    });
+    await refreshData();
+  };
 
   // Find user's table and any active prompts
   useEffect(() => {
@@ -50,12 +60,15 @@ const GuestInterface = () => {
     console.log('Active prompts for this table:', tablePrompts);
     if (tablePrompts.length > 0) {
       // Get the most recent prompt
-      const latestPrompt = tablePrompts[tablePrompts.length - 1];
+      const latestPrompt = tablePrompts[0]; // Since we're now ordering by created_at DESC in useRealtimeUpdates
       console.log('Setting current prompt to:', latestPrompt);
-      setCurrentPrompt(latestPrompt);
-      // Reset response state when a new prompt arrives
-      setSelectedResponse(null);
-      setHasResponded(false);
+      
+      // Only reset response state if it's a new prompt
+      if (!currentPrompt || currentPrompt.id !== latestPrompt.id) {
+        setCurrentPrompt(latestPrompt);
+        setSelectedResponse(null);
+        setHasResponded(false);
+      }
     } else {
       setCurrentPrompt(null);
       setSelectedResponse(null);
@@ -65,25 +78,29 @@ const GuestInterface = () => {
 
   // Handle announcements
   useEffect(() => {
-    if (!user?.tableNumber) return;
+    if (!user?.tableNumber || !announcements.length) return;
 
     const tableAnnouncements = announcements.filter(a => 
       a.target_table === null || a.target_table === user.tableNumber
     );
 
     if (tableAnnouncements.length > 0) {
-      const latestAnnouncement = tableAnnouncements[tableAnnouncements.length - 1];
-      setLastAnnouncement(latestAnnouncement.text);
-      setShowAnnouncement(true);
+      const latestAnnouncement = tableAnnouncements[0]; // Since we're now ordering by created_at DESC
+      
+      // Only show if it's a new announcement or not currently showing
+      if (!lastAnnouncement || latestAnnouncement.text !== lastAnnouncement) {
+        setLastAnnouncement(latestAnnouncement.text);
+        setShowAnnouncement(true);
 
-      // Hide announcement after 10 seconds
-      const timer = setTimeout(() => {
-        setShowAnnouncement(false);
-      }, 10000);
+        // Hide announcement after 10 seconds
+        const timer = setTimeout(() => {
+          setShowAnnouncement(false);
+        }, 10000);
 
-      return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [user, announcements]);
+  }, [user, announcements, lastAnnouncement]);
 
   const handleResponse = async (response: ResponseOption) => {
     if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
@@ -134,12 +151,24 @@ const GuestInterface = () => {
               Table {user?.tableNumber}, Seat {user?.seatCode}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="px-3 py-1 text-sm rounded-md bg-accent hover:bg-accent/80 transition-colors"
-          >
-            Exit
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleManualRefresh}
+              title="Refresh data"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Refresh data</span>
+            </Button>
+            <Button
+              onClick={logout}
+              className="px-3 py-1 text-sm rounded-md bg-accent hover:bg-accent/80 transition-colors"
+            >
+              Exit
+            </Button>
+          </div>
         </div>
       </header>
       
@@ -151,19 +180,34 @@ const GuestInterface = () => {
               realtimeStatus === 'connecting' ? 'border-l-amber-500' : 'border-l-red-500'
             }`}>
               <CardContent className="p-4">
-                <div className="flex items-start">
-                  <div>
-                    <h3 className="font-medium">{
-                      realtimeStatus === 'connecting' 
-                        ? 'Connecting to realtime updates...' 
-                        : 'Error connecting to realtime updates'
-                    }</h3>
-                    <p className="text-sm mt-1">{
-                      realtimeStatus === 'connecting'
-                        ? 'Please wait while we establish a connection.'
-                        : 'Some features may not work properly. Try refreshing the page.'
-                    }</p>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center">
+                    <div className={`h-2 w-2 rounded-full mr-2 ${
+                      realtimeStatus === 'connecting' ? 'bg-amber-600 animate-pulse' : 'bg-red-600'
+                    }`}></div>
+                    <div>
+                      <h3 className="font-medium">{
+                        realtimeStatus === 'connecting' 
+                          ? 'Connecting to realtime updates...' 
+                          : 'Error connecting to realtime updates'
+                      }</h3>
+                      <p className="text-sm text-muted-foreground">{
+                        realtimeStatus === 'connecting'
+                          ? 'Please wait while we establish a connection.'
+                          : 'Some features may not work properly.'
+                      }</p>
+                    </div>
                   </div>
+                  {realtimeStatus === 'error' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleManualRefresh}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Retry
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

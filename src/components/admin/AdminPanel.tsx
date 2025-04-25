@@ -1,7 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/layout/AdminLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 import Dashboard from './Dashboard';
 import Prompts from './Prompts';
@@ -14,6 +15,21 @@ const AdminPanel = () => {
   const [currentSection, setCurrentSection] = useState('dashboard');
   const { user } = useAuth();
   
+  // Enable realtime functionality on first load
+  useEffect(() => {
+    const enableRealtime = async () => {
+      try {
+        // Set REPLICA IDENTITY to FULL for all tables to ensure real-time changes work properly
+        await supabase.rpc('enable_realtime_tables');
+        console.log('Realtime functionality enabled on tables');
+      } catch (error) {
+        console.error('Error enabling realtime functionality:', error);
+      }
+    };
+
+    enableRealtime();
+  }, []);
+
   // Render content based on current section
   const renderContent = () => {
     switch (currentSection) {
