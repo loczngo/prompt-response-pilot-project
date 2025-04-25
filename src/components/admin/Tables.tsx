@@ -1,10 +1,10 @@
-
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Table, Seat, User, Prompt, Response, getTables, getTable, updateTable, updateTableSeat, getPrompts, getResponses, getUsers, createResponse, deleteResponse } from '@/lib/mockDb';
 import { useTableManagement } from '@/hooks/use-table-management';
 import { TableSelector } from './table/TableSelector';
