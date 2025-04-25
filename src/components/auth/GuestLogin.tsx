@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [username, setUsername] = useState('');
@@ -13,6 +15,7 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,12 +47,25 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         
         setIsSignUp(false);
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
         });
 
         if (signInError) throw signInError;
+        
+        // If sign in successful, refresh the page to trigger the auth context update
+        // This will cause the Index component to render the appropriate interface
+        if (data && data.user) {
+          toast({
+            title: "Login successful",
+            description: "Welcome back!",
+          });
+          
+          // Force a page reload to update auth context
+          navigate('/');
+          window.location.reload();
+        }
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
