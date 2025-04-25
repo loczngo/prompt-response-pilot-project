@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -18,7 +19,7 @@ const AdminPanel = () => {
   useEffect(() => {
     const enableRealtime = async () => {
       try {
-        // Remove the string argument to resolve the type error
+        // Remove any arguments to resolve the type error
         await supabase.rpc('enable_realtime_tables');
         console.log('Realtime functionality enabled on tables');
       } catch (error) {
