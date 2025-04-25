@@ -19,7 +19,7 @@ export const useRealtimeUpdates = () => {
       // Fetch tables
       const { data: tablesData, error: tablesError } = await supabase
         .from('tables')
-        .select('*, seats(*)');
+        .select('*');
       
       if (tablesError) {
         console.error('Error fetching tables:', tablesError);

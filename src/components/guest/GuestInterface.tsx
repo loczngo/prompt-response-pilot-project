@@ -17,6 +17,7 @@ const GuestInterface = () => {
   const { toast } = useToast();
   const { tables, prompts, announcements, realtimeStatus, refreshData } = useRealtimeUpdates();
   
+  // Use the fixed realtime enabler
   useRealtimeEnabler();
   
   const [currentPrompt, setCurrentPrompt] = useState<any | null>(null);
