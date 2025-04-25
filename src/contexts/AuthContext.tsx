@@ -48,7 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             firstName: supabaseUser.user_metadata.first_name || supabaseUser.user_metadata.username,
             username: supabaseUser.user_metadata.username,
             role: 'guest',
-            status: 'active'
+            status: 'active',
+            lastName: '',
+            lastActive: new Date().toISOString()
           };
           setUser(guestUser);
           sessionStorage.setItem('prs_auth_user', JSON.stringify(guestUser));
@@ -69,7 +71,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             firstName: supabaseUser.user_metadata.first_name || supabaseUser.user_metadata.username,
             username: supabaseUser.user_metadata.username,
             role: 'guest',
-            status: 'active'
+            status: 'active',
+            lastName: '',
+            lastActive: new Date().toISOString()
           };
           setUser(guestUser);
           sessionStorage.setItem('prs_auth_user', JSON.stringify(guestUser));
