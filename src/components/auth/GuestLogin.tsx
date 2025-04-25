@@ -22,12 +22,9 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
     setLoading(true);
 
     try {
-      // Create a valid email format using the username
-      const email = `${username.toLowerCase()}@promptresponse.com`;
-
       if (isSignUp) {
         const { error: signUpError } = await supabase.auth.signUp({
-          email,
+          email: username,
           password,
           options: {
             data: {
@@ -48,14 +45,13 @@ const GuestLogin = ({ onBack }: { onBack: () => void }) => {
         setIsSignUp(false);
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
+          email: username,
           password
         });
 
         if (signInError) throw signInError;
         
         // If sign in successful, refresh the page to trigger the auth context update
-        // This will cause the Index component to render the appropriate interface
         if (data && data.user) {
           toast({
             title: "Login successful",
