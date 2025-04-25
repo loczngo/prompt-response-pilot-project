@@ -190,6 +190,11 @@ const Tables = () => {
     });
   };
 
+  const handleRefreshClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+    event.preventDefault();
+    refreshTables(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -200,7 +205,7 @@ const Tables = () => {
               Create New Table
             </Button>
           )}
-          <Button onClick={refreshTables}>
+          <Button onClick={handleRefreshClick}>
             <RefreshCcw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
