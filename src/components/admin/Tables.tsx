@@ -41,6 +41,8 @@ import { TableManagementSection } from './table/TableManagementSection';
 import { TableControlsSection } from './table/TableControlsSection';
 import { TableResponsesSection } from './table/TableResponsesSection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { supabase } from '@/integrations/supabase/client';
 
 const Tables = () => {
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
@@ -54,7 +56,7 @@ const Tables = () => {
   const { user: currentUser } = useAuth();
   
   const {
-    tables,
+    tables: realtimeTables,
     tableNumber,
     selectedTable,
     setTableNumber,

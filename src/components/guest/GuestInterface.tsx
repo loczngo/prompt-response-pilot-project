@@ -1,181 +1,106 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  getTable, 
-  getPrompts, 
-  getAnnouncementsForTable, 
-  getResponses, 
-  createResponse,
-  Response
-} from '@/lib/mockDb';
 import { BellRing } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { useSharedState } from '@/hooks/use-shared-state';
+import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { supabase } from '@/integrations/supabase/client';
 
 type ResponseOption = 'YES' | 'NO' | 'SERVICE';
 
 const GuestInterface = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const { tables, prompts, announcements } = useRealtimeUpdates();
   
-  // Use shared state for prompt, table, and announcement data to sync across tabs
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
-  const [currentPromptId, setCurrentPromptId] = useSharedState<string | null>('currentPromptId', null);
   const [selectedResponse, setSelectedResponse] = useState<ResponseOption | null>(null);
   const [hasResponded, setHasResponded] = useState(false);
-  const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
-  const [announcementTimerId, setAnnouncementTimerId] = useState<number | null>(null);
-  // Track the last announcement timestamp to prevent repeating the same announcement
-  const [lastAnnouncementTimestamp, setLastAnnouncementTimestamp] = useSharedState<string | null>('lastAnnouncementTimestamp', null);
-  
-  // Make sure we have necessary user info
-  if (!user || !user.tableNumber || !user.seatCode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <CardContent className="p-6 text-center">
-          <h2 className="text-xl font-semibold mb-2">Invalid Session</h2>
-          <p className="text-muted-foreground mb-4">
-            Your session is invalid or has expired.
-          </p>
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Return to Login
-          </button>
-        </CardContent>
-      </div>
+  const [lastAnnouncement, setLastAnnouncement] = useState<string | null>(null);
+
+  // Find user's table and any active prompts
+  useEffect(() => {
+    if (!user?.tableNumber) return;
+
+    const userTable = tables.find(t => t.id === user.tableNumber);
+    if (!userTable) return;
+
+    const tablePrompts = prompts.filter(p => 
+      p.status === 'active' && 
+      (p.target_table === null || p.target_table === user.tableNumber)
     );
-  }
-  
-  // Handle announcements with useCallback to prevent memory leaks
-  const handleAnnouncements = useCallback(() => {
-    if (!user.tableNumber) return;
-    
-    const announcements = getAnnouncementsForTable(user.tableNumber);
-    if (announcements.length > 0) {
-      const latest = announcements.sort((a, b) => 
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      )[0];
-      
-      // Only update if this is a new announcement (based on timestamp)
-      if (!lastAnnouncementTimestamp || latest.timestamp !== lastAnnouncementTimestamp) {
-        setLastAnnouncement(latest.text);
-        setLastAnnouncementTimestamp(latest.timestamp);
-        setShowAnnouncement(true);
-        
-        // Clear any existing timer
-        if (announcementTimerId !== null) {
-          clearTimeout(announcementTimerId);
-        }
-        
-        // Hide announcement after 10 seconds
-        const timerId = window.setTimeout(() => {
-          setShowAnnouncement(false);
-        }, 10000);
-        
-        setAnnouncementTimerId(Number(timerId));
-      }
-    }
-  }, [user.tableNumber, announcementTimerId, lastAnnouncementTimestamp, setLastAnnouncementTimestamp]);
-  
-  // Check for prompts and handle responses
-  const checkForPrompt = useCallback(() => {
-    if (!user || !user.tableNumber) return;
-    
-    const table = getTable(user.tableNumber);
-    if (!table) return;
-    
-    const prompt = table.currentPromptId 
-      ? getPrompts().find(p => p.id === table.currentPromptId) 
-      : null;
-    
-    if (prompt && prompt.status === 'active') {
-      // If prompt ID changed, reset responses
-      if (currentPromptId !== prompt.id) {
-        setCurrentPrompt(prompt.text);
-        setCurrentPromptId(prompt.id);
-        setSelectedResponse(null);
-        setHasResponded(false);
-      } else if (currentPromptId === prompt.id) {
-        // Same prompt as before, check for responses
-        // Check if user has already responded to this prompt
-        const existingResponse = getResponses().find(r => 
-          r.promptId === prompt.id && 
-          r.userId === user.id &&
-          r.tableNumber === user.tableNumber &&
-          r.seatCode === user.seatCode
-        );
-        
-        if (existingResponse) {
-          setSelectedResponse(existingResponse.answer as ResponseOption);
-          // Only set hasResponded for YES/NO responses, SERVICE can be pressed multiple times
-          setHasResponded(existingResponse.answer === 'YES' || existingResponse.answer === 'NO');
-        }
-      }
-    } else if (!prompt && currentPromptId !== null) {
-      // Prompt was removed
+
+    if (tablePrompts.length > 0) {
+      // Get the most recent prompt
+      const latestPrompt = tablePrompts[tablePrompts.length - 1];
+      setCurrentPrompt(latestPrompt.text);
+    } else {
       setCurrentPrompt(null);
-      setCurrentPromptId(null);
       setSelectedResponse(null);
       setHasResponded(false);
     }
-    
-    // Check for announcements separately
-    handleAnnouncements();
-  }, [user, handleAnnouncements, currentPromptId, setCurrentPromptId]);
-  
+  }, [user, tables, prompts]);
+
+  // Handle announcements
   useEffect(() => {
-    // Check immediately and then every 1 second for more responsive updates
-    checkForPrompt();
-    const interval = setInterval(checkForPrompt, 1000);
-    
-    return () => {
-      clearInterval(interval);
-      // Clean up any announcement timer when unmounting
-      if (announcementTimerId !== null) {
-        clearTimeout(announcementTimerId);
+    if (!user?.tableNumber) return;
+
+    const tableAnnouncements = announcements.filter(a => 
+      a.target_table === null || a.target_table === user.tableNumber
+    );
+
+    if (tableAnnouncements.length > 0) {
+      const latestAnnouncement = tableAnnouncements[tableAnnouncements.length - 1];
+      setLastAnnouncement(latestAnnouncement.text);
+      setShowAnnouncement(true);
+
+      // Hide announcement after 10 seconds
+      const timer = setTimeout(() => {
+        setShowAnnouncement(false);
+      }, 10000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user, announcements]);
+
+  const handleResponse = async (response: ResponseOption) => {
+    if (!user?.tableNumber || !user?.seatCode || !currentPrompt) return;
+
+    try {
+      // Store response in Supabase
+      const { error } = await supabase
+        .from('responses')
+        .insert({
+          prompt_id: currentPrompt,
+          user_id: user.id,
+          table_number: user.tableNumber,
+          seat_code: user.seatCode,
+          answer: response
+        });
+
+      if (error) throw error;
+
+      setSelectedResponse(response);
+      if (response === 'YES' || response === 'NO') {
+        setHasResponded(true);
       }
-    };
-  }, [checkForPrompt, announcementTimerId]);
-  
-  const handleResponse = (response: ResponseOption) => {
-    if (!currentPromptId || !user.tableNumber || !user.seatCode) return;
-    
-    // For SERVICE type, allow multiple presses regardless of previous responses
-    // For YES/NO, only allow if the user hasn't already responded with YES or NO
-    if ((response === 'YES' || response === 'NO') && hasResponded) {
-      return;
+
+      toast({
+        title: "Response Recorded",
+        description: `Your response "${response}" has been submitted.`,
+      });
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit response. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    // Create the response
-    const newResponse: Omit<Response, 'id' | 'timestamp'> = {
-      userId: user.id,
-      promptId: currentPromptId,
-      tableNumber: user.tableNumber,
-      seatCode: user.seatCode,
-      answer: response
-    };
-    
-    createResponse(newResponse);
-    setSelectedResponse(response);
-    
-    // Only set hasResponded to true for YES/NO responses
-    if (response === 'YES' || response === 'NO') {
-      setHasResponded(true);
-    }
-    
-    // Show confirmation
-    toast({
-      title: "Response Recorded",
-      description: `Your response "${response}" has been submitted.`,
-    });
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Header */}

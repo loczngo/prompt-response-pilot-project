@@ -9,7 +9,123 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      announcements: {
+        Row: {
+          created_at: string | null
+          id: string
+          target_table: number | null
+          text: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          target_table?: number | null
+          text: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          target_table?: number | null
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_target_table_fkey"
+            columns: ["target_table"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompts: {
+        Row: {
+          created_at: string | null
+          id: string
+          status: string
+          target_table: number | null
+          text: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          status?: string
+          target_table?: number | null
+          text: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          status?: string
+          target_table?: number | null
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompts_target_table_fkey"
+            columns: ["target_table"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seats: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: number
+          is_dealer: boolean | null
+          status: string
+          table_id: number | null
+          user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: number
+          is_dealer?: boolean | null
+          status?: string
+          table_id?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: number
+          is_dealer?: boolean | null
+          status?: string
+          table_id?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seats_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tables: {
+        Row: {
+          created_at: string | null
+          id: number
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

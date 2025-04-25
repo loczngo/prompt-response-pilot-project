@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePrompts } from '@/hooks/use-prompts';
 import { PromptCard } from './prompts/PromptCard';
 import { PromptDialog } from './prompts/PromptDialog';
+import { useRealtimeUpdates } from '@/hooks/use-realtime-updates';
+import { supabase } from '@/integrations/supabase/client';
 
 const Prompts = () => {
   const [showAddPrompt, setShowAddPrompt] = useState(false);
@@ -15,10 +16,14 @@ const Prompts = () => {
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   
   const { user } = useAuth();
-  const { prompts, handleAddPrompt, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
+  const { handleAddPrompt: handleAddPromptLocal, handleUpdatePrompt, handleDeletePrompt, canManagePrompts } = usePrompts(
     user?.role, 
     user?.tableNumber
   );
+  const { prompts: realTimePrompts } = useRealtimeUpdates();
+  
+  // Use realTimePrompts instead of getPrompts()
+  const prompts = realTimePrompts;
   
   // Fixed TypeScript error: Use strict equality comparison with specific role type
   if (user?.role !== 'super-admin' && user?.role !== 'table-admin') {
@@ -40,6 +45,39 @@ const Prompts = () => {
   const openEditDialog = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
     setShowEditPrompt(true);
+  };
+
+  const handleAddPrompt = async (promptData: {
+    text: string;
+    targetTable: string | null;
+    isActive: boolean;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .insert({
+          text: promptData.text,
+          target_table: promptData.targetTable ? Number(promptData.targetTable) : null,
+          status: promptData.isActive ? 'active' : 'inactive'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Prompt Created",
+        description: "The prompt has been successfully created.",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error creating prompt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create prompt.",
+        variant: "destructive"
+      });
+      return false;
+    }
   };
 
   return (
