@@ -21,6 +21,7 @@ export const PromptResponse = ({
 }: PromptResponseProps) => {
   const [displayPrompt, setDisplayPrompt] = useState<any | null>(null);
   const lastPromptRef = useRef<any | null>(null);
+  const promptUpdateCount = useRef(0);
 
   // Update display prompt whenever currentPrompt changes
   useEffect(() => {
@@ -31,12 +32,19 @@ export const PromptResponse = ({
       console.log("Setting new display prompt:", currentPrompt);
       setDisplayPrompt(currentPrompt);
       lastPromptRef.current = currentPrompt;
+      promptUpdateCount.current += 1;
+      console.log(`Prompt updated ${promptUpdateCount.current} times`);
     } else if (!currentPrompt && lastPromptRef.current) {
       console.log("Clearing display prompt");
       setDisplayPrompt(null);
       lastPromptRef.current = null;
     }
   }, [currentPrompt]);
+
+  // Debug log for changes to the display prompt
+  useEffect(() => {
+    console.log("Display prompt state updated:", displayPrompt);
+  }, [displayPrompt]);
 
   return (
     <Card className="shadow-md">
@@ -111,12 +119,11 @@ export const PromptResponse = ({
           </p>
         )}
 
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
-            <p>Debug Info:</p>
-            <p>Current Prompt: {displayPrompt ? `ID: ${displayPrompt.id}, Text: ${displayPrompt.text}` : 'None'}</p>
-          </div>
-        )}
+        <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
+          <p>Debug Info:</p>
+          <p>Current Prompt: {displayPrompt ? `ID: ${displayPrompt.id}, Text: ${displayPrompt.text}` : 'None'}</p>
+          <p>Updates: {promptUpdateCount.current}</p>
+        </div>
       </CardContent>
     </Card>
   );

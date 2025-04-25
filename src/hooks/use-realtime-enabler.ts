@@ -12,21 +12,34 @@ export const useRealtimeEnabler = () => {
       try {
         console.log('Setting up realtime channels for tables');
         
-        // For guest users, we won't try to authenticate since they don't have Supabase sessions
-        // Instead, we'll just set up the channel to listen for public data
+        // Check if this is a guest user
         const isGuestUser = user?.role === 'guest';
+        console.log('Is guest user:', isGuestUser);
         
+        // For guest users, we skip the connection test entirely
+        // This avoids 401 errors from trying to access tables they don't have permission for
         if (!isGuestUser) {
           // Only do connection test for authenticated users
-          const { error: testError } = await supabase
-            .from('announcements')
-            .select('count(*)')
-            .limit(1)
-            .single();
-            
-          if (testError && testError.code !== '42501') {
-            console.error('Supabase connection test failed:', testError);
-            throw testError;
+          try {
+            const { error: testError } = await supabase
+              .from('announcements')
+              .select('count(*)')
+              .limit(1)
+              .single();
+              
+            if (testError && testError.code !== '42501') {
+              console.error('Supabase connection test failed:', testError);
+              // Only throw if it's not a permission error (42501)
+              if (testError.code !== 'PGRST301' && !testError.message.includes('JWT')) {
+                throw testError;
+              }
+            }
+          } catch (testError) {
+            console.error('Error in connection test:', testError);
+            // Continue despite error for guest users
+            if (!isGuestUser) {
+              throw testError;
+            }
           }
         }
         
@@ -64,7 +77,11 @@ export const useRealtimeEnabler = () => {
             setIsEnabled(true);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.error('Realtime channel status:', status);
-            // Could implement reconnection logic here
+            // For guest users, we'll still consider realtime "enabled" even with errors
+            if (isGuestUser) {
+              console.log('Guest user - treating realtime as enabled despite errors');
+              setIsEnabled(true);
+            }
           }
         });
         
@@ -75,6 +92,11 @@ export const useRealtimeEnabler = () => {
         };
       } catch (error) {
         console.error('Error enabling realtime functionality:', error);
+        // For guest users, we'll still proceed with the app despite errors
+        if (user?.role === 'guest') {
+          console.log('Guest user - treating realtime as enabled despite errors');
+          setIsEnabled(true);
+        }
         return () => {}; // Return empty cleanup on error
       }
     };
@@ -88,5 +110,5 @@ export const useRealtimeEnabler = () => {
     };
   }, [user]);
 
-  return { isEnabled };
+  return { isEnabled: user?.role === 'guest' ? true : isEnabled };
 };

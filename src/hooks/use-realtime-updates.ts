@@ -15,76 +15,119 @@ export const useRealtimeUpdates = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
   const [errorCount, setErrorCount] = useState(0);
+  const [lastError, setLastError] = useState<any>(null);
+
+  // Determine if user is a guest
+  const isGuestUser = user?.role === 'guest';
+  
+  // Use more aggressive polling for guest users
+  const pollingInterval = isGuestUser ? 3000 : 10000; // 3 seconds for guests, 10 for others
 
   // Function to fetch initial data
   const fetchInitialData = async () => {
     try {
       console.log('Fetching initial data from Supabase...');
-      const isGuestUser = user?.role === 'guest';
       
-      // Fetch tables with better error handling
-      const { data: tablesData, error: tablesError } = await supabase
-        .from('tables')
-        .select('*');
+      // For guest users, we'll use localStorage cache as primary data source and treat Supabase as secondary
+      // This avoids permission errors while still allowing real-time updates when they work
+      const shouldUseCache = isGuestUser && (tables.length > 0 || prompts.length > 0 || announcements.length > 0);
       
-      if (tablesError) {
-        console.log('Error fetching tables:', tablesError);
-        // For guest users, we'll use the cached data from localStorage if available
-        if (isGuestUser && tables.length > 0) {
-          console.log('Using cached tables data for guest user');
-        } else {
-          setErrorCount(prev => prev + 1);
+      if (shouldUseCache) {
+        console.log('Guest user with existing data - using cached data as primary source');
+      }
+      
+      let tablesData = tables;
+      let promptsData = prompts;
+      let announcementsData = announcements;
+      let hasNewData = false;
+      
+      // Attempt to fetch tables with better error handling
+      try {
+        const { data: fetchedTables, error: tablesError } = await supabase
+          .from('tables')
+          .select('*');
+        
+        if (tablesError) {
+          console.log('Error fetching tables:', tablesError);
+          setLastError(tablesError);
+          // Don't increment error count for expected permission errors for guests
+          if (!isGuestUser || (tablesError.code !== 'PGRST301' && !tablesError.message.includes('JWT'))) {
+            setErrorCount(prev => prev + 1);
+          }
+        } else if (fetchedTables && fetchedTables.length > 0) {
+          console.log(`Fetched ${fetchedTables.length} tables from database`);
+          tablesData = fetchedTables;
+          hasNewData = true;
+          setErrorCount(0);
         }
-      } else if (tablesData) {
-        console.log(`Fetched ${tablesData.length} tables from database`);
+      } catch (error) {
+        console.error('Error in fetchTables:', error);
+        setLastError(error);
+      }
+
+      // Try to fetch prompts
+      try {
+        const { data: fetchedPrompts, error: promptsError } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+        
+        if (promptsError) {
+          console.log('Error fetching prompts:', promptsError);
+          setLastError(promptsError);
+          // Don't increment error count for expected permission errors for guests
+          if (!isGuestUser || (promptsError.code !== 'PGRST301' && !promptsError.message.includes('JWT'))) {
+            setErrorCount(prev => prev + 1);
+          }
+        } else if (fetchedPrompts && fetchedPrompts.length > 0) {
+          console.log(`Fetched ${fetchedPrompts.length} prompts from database:`, fetchedPrompts);
+          promptsData = fetchedPrompts;
+          hasNewData = true;
+          setErrorCount(0);
+        }
+      } catch (error) {
+        console.error('Error in fetchPrompts:', error);
+        setLastError(error);
+      }
+
+      // Try to fetch announcements
+      try {
+        const { data: fetchedAnnouncements, error: announcementsError } = await supabase
+          .from('announcements')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (announcementsError) {
+          console.log('Error fetching announcements:', announcementsError);
+          setLastError(announcementsError);
+          // Don't increment error count for expected permission errors for guests
+          if (!isGuestUser || (announcementsError.code !== 'PGRST301' && !announcementsError.message.includes('JWT'))) {
+            setErrorCount(prev => prev + 1);
+          }
+        } else if (fetchedAnnouncements && fetchedAnnouncements.length > 0) {
+          console.log(`Fetched ${fetchedAnnouncements.length} announcements from database`);
+          announcementsData = fetchedAnnouncements;
+          hasNewData = true;
+          setErrorCount(0);
+        }
+      } catch (error) {
+        console.error('Error in fetchAnnouncements:', error);
+        setLastError(error);
+      }
+
+      // Update shared state if we have new data or if this is the first initialization
+      if (hasNewData || !isInitialized) {
         setTables(tablesData);
-        // Reset error count on successful fetch
-        setErrorCount(0);
-      }
-
-      // Fetch prompts
-      const { data: promptsData, error: promptsError } = await supabase
-        .from('prompts')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      
-      if (promptsError) {
-        console.log('Error fetching prompts:', promptsError);
-        if (isGuestUser && prompts.length > 0) {
-          console.log('Using cached prompts data for guest user');
-        } else {
-          setErrorCount(prev => prev + 1);
-        }
-      } else if (promptsData) {
-        console.log(`Fetched ${promptsData.length} prompts from database:`, promptsData);
         setPrompts(promptsData);
-        setErrorCount(0);
-      }
-
-      // Fetch announcements
-      const { data: announcementsData, error: announcementsError } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (announcementsError) {
-        console.log('Error fetching announcements:', announcementsError);
-        if (isGuestUser && announcements.length > 0) {
-          console.log('Using cached announcements data for guest user');
-        } else {
-          setErrorCount(prev => prev + 1);
-        }
-      } else if (announcementsData) {
-        console.log(`Fetched ${announcementsData.length} announcements from database`);
         setAnnouncements(announcementsData);
-        setErrorCount(0);
       }
 
-      // If we have too many consecutive errors, set status to error
-      if (errorCount >= 3) {
+      // Update status based on error count and user type
+      if (errorCount >= 3 && !isGuestUser) {
         setRealtimeStatus('error');
-      } else if (errorCount === 0) {
+      } else if (errorCount === 0 || isGuestUser) {
+        // For guest users, we'll always show connected status unless there are critical errors
         setRealtimeStatus('connected');
       }
 
@@ -92,8 +135,11 @@ export const useRealtimeUpdates = () => {
       setLastRefreshTime(Date.now());
     } catch (error) {
       console.error('Error in fetchInitialData:', error);
+      setLastError(error);
       setErrorCount(prev => prev + 1);
-      if (errorCount >= 3) {
+      
+      // For guest users, we want to be more lenient about errors
+      if (errorCount >= 5 && !isGuestUser) {
         setRealtimeStatus('error');
       }
     }
@@ -153,7 +199,14 @@ export const useRealtimeUpdates = () => {
             await fetchInitialData();
           } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
             console.error('Supabase realtime subscription issue:', status);
-            setRealtimeStatus('error');
+            
+            // For guest users, we'll still consider the connection as working
+            if (isGuestUser) {
+              console.log('Guest user - keeping status as connected despite errors');
+              setRealtimeStatus('connected');
+            } else {
+              setRealtimeStatus('error');
+            }
             
             // Try to fetch data anyway
             await fetchInitialData();
@@ -179,21 +232,17 @@ export const useRealtimeUpdates = () => {
 
   // Poll for updates as a fallback to realtime
   useEffect(() => {
-    // For guest users, we'll use a more aggressive polling strategy
-    const isGuestUser = user?.role === 'guest';
-    const pollingInterval = isGuestUser ? 5000 : 10000; // 5 seconds for guests, 10 for others
-    
     const interval = setInterval(() => {
       const now = Date.now();
       // Only refresh if it's been more than the polling interval since the last refresh
       if (now - lastRefreshTime > pollingInterval) {
-        console.log('Polling for updates...');
+        console.log(`Polling for updates (${isGuestUser ? 'guest user' : 'regular user'})...`);
         fetchInitialData();
       }
     }, pollingInterval);
 
     return () => clearInterval(interval);
-  }, [lastRefreshTime, user]);
+  }, [lastRefreshTime, user, pollingInterval, isGuestUser]);
 
   useEffect(() => {
     console.log('Initializing realtime updates...');
@@ -225,6 +274,7 @@ export const useRealtimeUpdates = () => {
     announcements, 
     realtimeStatus,
     refreshData,
-    isInitialized
+    isInitialized,
+    lastError
   };
 };
