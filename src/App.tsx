@@ -1,13 +1,16 @@
+
 import { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import '@/App.css';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from './contexts/AuthContext';
 import { useSupabaseClientConfig } from './hooks/use-supabase-client-config';
 
-function App() {
+// Create a wrapped component that uses the hook inside the AuthProvider
+const AppContent = () => {
   // Initialize Supabase client config
   useSupabaseClientConfig();
-
+  
   return (
     <BrowserRouter>
       <Toaster />
@@ -17,6 +20,14 @@ function App() {
         </div>
       </div>
     </BrowserRouter>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
