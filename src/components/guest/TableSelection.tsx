@@ -14,6 +14,7 @@ import { TableJoinButton } from './components/TableJoinButton';
 
 export const TableSelection = () => {
   const [loading, setLoading] = useState(false);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -95,14 +96,23 @@ export const TableSelection = () => {
     }
   };
 
-  const handleReturnToMain = async () => {
-    try {
-      await logout();
-      navigate('/');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      navigate('/');
-    }
+  const handleReturnToMain = () => {
+    logout()
+      .then(() => {
+        navigate('/');
+      })
+      .catch((error) => {
+        console.error('Error during logout:', error);
+        // Even if logout fails, redirect to home page
+        navigate('/');
+      });
+  };
+
+  const handleManualRefresh = () => {
+    setIsManualRefresh(true);
+    handleRefresh().finally(() => {
+      setIsManualRefresh(false);
+    });
   };
 
   const renderTablesFallback = () => {
@@ -110,8 +120,8 @@ export const TableSelection = () => {
       return (
         <div className="text-center p-8">
           <p className="text-muted-foreground mb-4">No tables are currently available.</p>
-          <Button onClick={handleRefresh} disabled={refreshing}>
-            {refreshing ? (
+          <Button onClick={handleManualRefresh} disabled={refreshing || isManualRefresh}>
+            {(refreshing || isManualRefresh) ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                 Refreshing...
@@ -153,12 +163,12 @@ export const TableSelection = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={handleRefresh} 
-              disabled={refreshing}
+              onClick={handleManualRefresh} 
+              disabled={refreshing || isManualRefresh}
               className="p-1 h-8 w-8"
               aria-label="Refresh data"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${(refreshing || isManualRefresh) ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </CardHeader>
@@ -173,7 +183,7 @@ export const TableSelection = () => {
               setSelectedTable(value);
               setSelectedSeat('');
             }}
-            loadingData={loadingData}
+            loadingData={loadingData || isManualRefresh}
           />
 
           <SeatSelect
@@ -181,14 +191,14 @@ export const TableSelection = () => {
             selectedSeat={selectedSeat}
             availableSeats={availableSeats}
             onSeatSelect={setSelectedSeat}
-            loadingData={loadingData}
+            loadingData={loadingData || isManualRefresh}
           />
         </CardContent>
 
         <CardFooter>
           <TableJoinButton
             onJoin={handleJoinTable}
-            disabled={!selectedTable || !selectedSeat || loading || loadingData}
+            disabled={!selectedTable || !selectedSeat || loading || loadingData || isManualRefresh}
             loading={loading}
           />
         </CardFooter>

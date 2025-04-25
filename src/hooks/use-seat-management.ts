@@ -10,7 +10,10 @@ export const useSeatManagement = (tableId: string) => {
   const { toast } = useToast();
 
   const fetchSeats = async (tableId: string) => {
-    if (!tableId) return;
+    if (!tableId) {
+      setAvailableSeats([]);
+      return Promise.resolve();
+    }
     
     setLoadingSeats(true);
     console.log('Fetching seats for table:', tableId);
@@ -34,6 +37,7 @@ export const useSeatManagement = (tableId: string) => {
             const parsedSeats = JSON.parse(cachedSeats);
             setAvailableSeats(parsedSeats.map((seat: any) => seat.code));
           } else {
+            // Generate some fallback seat codes for the UI to work
             const fallbackSeats = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].filter(() => Math.random() > 0.3);
             setAvailableSeats(fallbackSeats);
           }
@@ -56,6 +60,8 @@ export const useSeatManagement = (tableId: string) => {
     } finally {
       setLoadingSeats(false);
     }
+    
+    return Promise.resolve();
   };
 
   useEffect(() => {
@@ -67,6 +73,7 @@ export const useSeatManagement = (tableId: string) => {
     fetchSeats(tableId);
 
     const numericTableId = parseInt(tableId, 10);
+    // Use a more unique channel ID to prevent conflicts
     const channelId = `seat_updates_table${numericTableId}_${Math.random().toString(36).substring(2, 9)}`;
     
     const channel = supabase
@@ -91,6 +98,7 @@ export const useSeatManagement = (tableId: string) => {
     selectedSeat,
     setSelectedSeat,
     availableSeats,
-    loadingSeats
+    loadingSeats,
+    fetchSeats
   };
 };

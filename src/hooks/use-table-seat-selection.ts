@@ -1,4 +1,5 @@
 
+import { useState, useEffect } from 'react';
 import { useTableManagement } from './use-table-management';
 import { useSeatManagement } from './use-seat-management';
 
@@ -17,8 +18,24 @@ export const useTableSeatSelection = () => {
     selectedSeat,
     setSelectedSeat,
     availableSeats,
-    loadingSeats
+    loadingSeats,
+    fetchSeats
   } = useSeatManagement(tableId);
+
+  // Ensure we fetch seats when tableId changes
+  useEffect(() => {
+    if (tableId) {
+      fetchSeats(tableId);
+    }
+  }, [tableId]);
+
+  const handleRefreshWithSeats = async () => {
+    await handleRefresh();
+    if (tableId) {
+      await fetchSeats(tableId);
+    }
+    return Promise.resolve();
+  };
 
   return {
     tables,
@@ -30,6 +47,6 @@ export const useTableSeatSelection = () => {
     hasAttemptedFetch,
     setSelectedTable: setTableId,
     setSelectedSeat,
-    handleRefresh
+    handleRefresh: handleRefreshWithSeats
   };
 };

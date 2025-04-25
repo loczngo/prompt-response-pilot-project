@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSharedState } from './use-shared-state';
@@ -17,19 +16,14 @@ export const useRealtimeUpdates = () => {
   const [errorCount, setErrorCount] = useState(0);
   const [lastError, setLastError] = useState<any>(null);
 
-  // Determine if user is a guest
   const isGuestUser = user?.role === 'guest';
-  
-  // Use more aggressive polling for guest users
-  const pollingInterval = isGuestUser ? 2000 : 10000; // 2 seconds for guests, 10 for others
 
-  // Function to fetch initial data
+  const pollingInterval = isGuestUser ? 10000 : 20000;
+
   const fetchInitialData = async () => {
     try {
       console.log('Fetching initial data from Supabase...');
       
-      // For guest users, we'll use localStorage cache as primary data source and treat Supabase as secondary
-      // This avoids permission errors while still allowing real-time updates when they work
       const shouldUseCache = isGuestUser && (tables.length > 0 || prompts.length > 0 || announcements.length > 0);
       
       if (shouldUseCache) {
@@ -41,7 +35,6 @@ export const useRealtimeUpdates = () => {
       let announcementsData = announcements;
       let hasNewData = false;
       
-      // Attempt to fetch tables with better error handling
       try {
         const { data: fetchedTables, error: tablesError } = await supabase
           .from('tables')
@@ -50,7 +43,6 @@ export const useRealtimeUpdates = () => {
         if (tablesError) {
           console.log('Error fetching tables:', tablesError);
           setLastError(tablesError);
-          // Don't increment error count for expected permission errors for guests
           if (!isGuestUser || (tablesError.code !== 'PGRST301' && !tablesError.message.includes('JWT'))) {
             setErrorCount(prev => prev + 1);
           }
@@ -65,7 +57,6 @@ export const useRealtimeUpdates = () => {
         setLastError(error);
       }
 
-      // Try to fetch seats for guest users
       if (isGuestUser && user?.tableNumber) {
         try {
           const { data: fetchedSeats, error: seatsError } = await supabase
@@ -79,7 +70,6 @@ export const useRealtimeUpdates = () => {
           } else if (fetchedSeats && fetchedSeats.length > 0) {
             console.log(`Fetched ${fetchedSeats.length} seats for table ${user.tableNumber}`);
             
-            // Update the seats for this specific table in the tablesData
             if (tablesData.length > 0) {
               const tableIndex = tablesData.findIndex(t => t.id === user.tableNumber);
               if (tableIndex >= 0) {
@@ -93,7 +83,6 @@ export const useRealtimeUpdates = () => {
         }
       }
 
-      // Try to fetch prompts
       try {
         const { data: fetchedPrompts, error: promptsError } = await supabase
           .from('prompts')
@@ -104,7 +93,6 @@ export const useRealtimeUpdates = () => {
         if (promptsError) {
           console.log('Error fetching prompts:', promptsError);
           setLastError(promptsError);
-          // Don't increment error count for expected permission errors for guests
           if (!isGuestUser || (promptsError.code !== 'PGRST301' && !promptsError.message.includes('JWT'))) {
             setErrorCount(prev => prev + 1);
           }
@@ -119,7 +107,6 @@ export const useRealtimeUpdates = () => {
         setLastError(error);
       }
 
-      // Try to fetch announcements
       try {
         const { data: fetchedAnnouncements, error: announcementsError } = await supabase
           .from('announcements')
@@ -129,7 +116,6 @@ export const useRealtimeUpdates = () => {
         if (announcementsError) {
           console.log('Error fetching announcements:', announcementsError);
           setLastError(announcementsError);
-          // Don't increment error count for expected permission errors for guests
           if (!isGuestUser || (announcementsError.code !== 'PGRST301' && !announcementsError.message.includes('JWT'))) {
             setErrorCount(prev => prev + 1);
           }
@@ -144,18 +130,15 @@ export const useRealtimeUpdates = () => {
         setLastError(error);
       }
 
-      // Update shared state if we have new data or if this is the first initialization
       if (hasNewData || !isInitialized) {
         setTables(tablesData);
         setPrompts(promptsData);
         setAnnouncements(announcementsData);
       }
 
-      // Update status based on error count and user type
       if (errorCount >= 3 && !isGuestUser) {
         setRealtimeStatus('error');
       } else if (errorCount === 0 || isGuestUser) {
-        // For guest users, we'll always show connected status unless there are critical errors
         setRealtimeStatus('connected');
       }
 
@@ -166,27 +149,22 @@ export const useRealtimeUpdates = () => {
       setLastError(error);
       setErrorCount(prev => prev + 1);
       
-      // For guest users, we want to be more lenient about errors
       if (errorCount >= 5 && !isGuestUser) {
         setRealtimeStatus('error');
       }
     }
   };
 
-  // Function to setup realtime subscriptions
   const setupRealtimeSubscriptions = () => {
     try {
-      // Remove any existing channel subscription to prevent duplicates
       if (channel) {
         supabase.removeChannel(channel);
       }
 
       console.log('Setting up new realtime subscriptions...');
       
-      // Create a new channel with a unique name to avoid conflicts
       const newChannel = supabase.channel('schema-db-changes-' + Math.random().toString(36).substring(2, 9));
       
-      // Tables changes
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
@@ -196,7 +174,6 @@ export const useRealtimeUpdates = () => {
         }
       );
       
-      // Seats changes - especially important for guest users
       if (isGuestUser && user?.tableNumber) {
         newChannel.on(
           'postgres_changes',
@@ -208,7 +185,6 @@ export const useRealtimeUpdates = () => {
         );
       }
       
-      // Prompts changes
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'prompts' },
@@ -218,7 +194,6 @@ export const useRealtimeUpdates = () => {
         }
       );
       
-      // Announcements changes
       newChannel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'announcements' },
@@ -228,7 +203,6 @@ export const useRealtimeUpdates = () => {
         }
       );
 
-      // Subscribe to the channel with error handling
       newChannel
         .subscribe(async (status) => {
           console.log('Supabase realtime subscription status:', status);
@@ -240,7 +214,6 @@ export const useRealtimeUpdates = () => {
           } else if (status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
             console.error('Supabase realtime subscription issue:', status);
             
-            // For guest users, we'll still consider the connection as working
             if (isGuestUser) {
               console.log('Guest user - keeping status as connected despite errors');
               setRealtimeStatus('connected');
@@ -248,10 +221,8 @@ export const useRealtimeUpdates = () => {
               setRealtimeStatus('error');
             }
             
-            // Try to fetch data anyway
             await fetchInitialData();
             
-            // Auto-reconnect after a delay
             setTimeout(() => {
               console.log('Attempting to reconnect realtime subscription...');
               setupRealtimeSubscriptions();
@@ -259,7 +230,6 @@ export const useRealtimeUpdates = () => {
           }
         });
       
-      // Save the channel reference
       setChannel(newChannel);
       
       return newChannel;
@@ -270,42 +240,39 @@ export const useRealtimeUpdates = () => {
     }
   };
 
-  // Poll for updates as a fallback to realtime
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      // Only refresh if it's been more than the polling interval since the last refresh
-      if (now - lastRefreshTime > pollingInterval) {
+      const currentPollingInterval = isGuestUser ? 10000 : 20000;
+      
+      if (now - lastRefreshTime > currentPollingInterval) {
         console.log(`Polling for updates (${isGuestUser ? 'guest user' : 'regular user'})...`);
         fetchInitialData();
       }
-    }, pollingInterval);
+    }, isGuestUser ? 10000 : 20000);
 
     return () => clearInterval(interval);
-  }, [lastRefreshTime, user, pollingInterval, isGuestUser]);
+  }, [lastRefreshTime, user]);
 
   useEffect(() => {
     console.log('Initializing realtime updates...');
     
-    // Initial data fetch
     fetchInitialData();
     
-    // Setup real-time subscriptions
     const newChannel = setupRealtimeSubscriptions();
 
-    // Clean up on component unmount
     return () => {
       console.log('Cleaning up realtime subscriptions');
       if (newChannel) {
         supabase.removeChannel(newChannel);
       }
     };
-  }, [user]); // Re-initialize when user changes
+  }, [user]);
 
-  // Expose a function to manually refresh data
   const refreshData = async () => {
     console.log('Manually refreshing data...');
     await fetchInitialData();
+    return Promise.resolve();
   };
 
   return { 
